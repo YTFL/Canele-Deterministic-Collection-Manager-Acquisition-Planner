@@ -25,7 +25,7 @@ class CaneleDropdown<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<T>(
-      value: value,
+      initialValue: value,
       isExpanded: true,
       menuMaxHeight: 300,
       decoration: InputDecoration(

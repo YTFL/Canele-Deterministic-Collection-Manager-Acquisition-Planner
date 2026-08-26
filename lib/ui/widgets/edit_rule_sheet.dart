@@ -4,7 +4,6 @@ import '../../core/constants/app_colors.dart';
 import '../../core/utils/type_helper.dart';
 import '../../core/utils/uuid_generator.dart';
 import '../../models/rule_model.dart';
-import '../../models/series.dart';
 import '../../providers/rule_provider.dart';
 import '../../providers/series_provider.dart';
 
@@ -257,7 +256,7 @@ class _EditRuleSheetState extends ConsumerState<EditRuleSheet> {
                 }
 
                 return DropdownButtonFormField<String>(
-                  value: currentVal,
+                  initialValue: currentVal,
                   hint: const Text('Select or Add Format'),
                   items: [
                     ...availableTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))),
@@ -324,7 +323,7 @@ class _EditRuleSheetState extends ConsumerState<EditRuleSheet> {
             Text('Progress Trigger', style: theme.textTheme.titleMedium),
             const SizedBox(height: 6),
             DropdownButtonFormField<ProgressTriggerType>(
-              value: _progressTrigger,
+              initialValue: _progressTrigger,
               items: const [
                 DropdownMenuItem(value: ProgressTriggerType.none, child: Text('None (Evaluate all unowned)')),
                 DropdownMenuItem(value: ProgressTriggerType.exactVolumesLeft, child: Text('Exact Volumes Left to Complete')),
@@ -386,7 +385,7 @@ class _EditRuleSheetState extends ConsumerState<EditRuleSheet> {
               contentPadding: EdgeInsets.zero,
               title: const Text('Restock Priority'),
               subtitle: const Text('Bump volumes marked as recently restocked or available on watchlist'),
-              activeColor: AppColors.caramelizedAmber,
+              activeThumbColor: AppColors.caramelizedAmber,
               value: _restockPriority,
               onChanged: (val) => setState(() => _restockPriority = val),
             ),

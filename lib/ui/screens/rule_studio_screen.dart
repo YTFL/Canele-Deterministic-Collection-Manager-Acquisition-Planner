@@ -389,7 +389,7 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
                               child: child,
                             );
                           },
-                          onReorder: (oldIndex, newIndex) {
+                          onReorderItem: (oldIndex, newIndex) {
                             ref.read(rulesNotifierProvider.notifier).reorderRules(oldIndex, newIndex);
                           },
                           itemBuilder: (context, index) {

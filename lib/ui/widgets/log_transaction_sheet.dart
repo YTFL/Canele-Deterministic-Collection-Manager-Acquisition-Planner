@@ -53,7 +53,7 @@ class LogTransactionSheet extends ConsumerStatefulWidget {
 class _LogTransactionSheetState extends ConsumerState<LogTransactionSheet> {
   Series? _selectedSeries;
   Volume? _selectedVolume;
-  DateTime _purchaseDate = DateTime.now();
+  final DateTime _purchaseDate = DateTime.now();
   bool _isGift = false; // Toggle between Purchased (false) and Gift (true)
   final _notesController = TextEditingController();
 

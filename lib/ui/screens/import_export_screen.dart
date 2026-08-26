@@ -5,13 +5,10 @@ import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../../models/backup_metadata.dart';
 import '../../providers/backup_provider.dart';
-import '../../providers/database_provider.dart';
 import '../../providers/quota_provider.dart';
 import '../../providers/rule_provider.dart';
 import '../../providers/series_provider.dart';
-import '../../services/universal_exporter.dart';
 import '../../services/universal_importer.dart';
 import '../widgets/backup_folder_card.dart';
 import '../widgets/canele_card.dart';
@@ -358,7 +355,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
                       ),
                       Switch(
                         value: backupMeta.isAutoBackupEnabled,
-                        activeColor: AppColors.caramelizedAmber,
+                        activeThumbColor: AppColors.caramelizedAmber,
                         onChanged: (val) {
                           ref.read(backupNotifierProvider.notifier).toggleAutoBackup(val);
                         },

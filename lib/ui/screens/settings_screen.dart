@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/database/json_backup_service.dart';
-import '../../providers/database_provider.dart';
 import '../../providers/quota_provider.dart';
 import '../../providers/rule_provider.dart';
 import '../../providers/series_provider.dart';

@@ -4,17 +4,16 @@ import '../models/volume.dart';
 class VolumeRepository {
   List<Volume> getAll() {
     final validSeriesIds = HiveBoxes.seriesBox.values
-        .map((m) => (m is Map) ? (m['id'] as String?) : null)
+        .map((m) => m['id'] as String?)
         .where((id) => id != null && id.isNotEmpty)
         .toSet();
 
     return HiveBoxes.volumesBox.values
         .where((map) {
-          if (map is! Map) return false;
           final seriesId = map['seriesId'] as String?;
           return seriesId != null && validSeriesIds.contains(seriesId);
         })
-        .map((map) => Volume.fromMap(map as Map))
+        .map((map) => Volume.fromMap(map))
         .toList();
   }
 
@@ -68,7 +67,7 @@ class VolumeRepository {
   /// Deletes all orphan volumes that have no parent series and cleans up their transactions.
   Future<int> cleanupOrphanVolumes() async {
     final validSeriesIds = HiveBoxes.seriesBox.values
-        .map((m) => (m is Map) ? (m['id'] as String?) : null)
+        .map((m) => m['id'] as String?)
         .where((id) => id != null && id.isNotEmpty)
         .toSet();
 

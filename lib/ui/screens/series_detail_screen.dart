@@ -81,7 +81,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     Text('Availability State', style: Theme.of(context).textTheme.titleSmall),
                     const SizedBox(height: 4),
                     DropdownButtonFormField<String>(
-                      value: availability,
+                      initialValue: availability,
                       items: const [
                         DropdownMenuItem(value: 'available', child: Text('Available')),
                         DropdownMenuItem(value: 'outOfStock', child: Text('Out of Stock')),
@@ -311,7 +311,6 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                 final start = int.tryParse(startController.text) ?? 1;
                 final end = int.tryParse(endController.text) ?? 1;
                 if (start <= end) {
-                  final now = DateTime.now();
                   final newVolumes = <Volume>[];
                   for (int i = start; i <= end; i++) {
                     newVolumes.add(Volume(
@@ -404,7 +403,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     Text('Type', style: Theme.of(context).textTheme.titleSmall),
                     const SizedBox(height: 4),
                     DropdownButtonFormField<String>(
-                      value: type,
+                      initialValue: type,
                       items: [
                         ...availableTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))),
                         const DropdownMenuItem(
@@ -439,7 +438,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     Text('Collection Status', style: Theme.of(context).textTheme.titleSmall),
                     const SizedBox(height: 4),
                     DropdownButtonFormField<String>(
-                      value: status,
+                      initialValue: status,
                       items: const [
                         DropdownMenuItem(value: 'active', child: Text('Active')),
                         DropdownMenuItem(value: 'wishlist', child: Text('Wishlist')),
@@ -453,7 +452,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     Text('Release Status', style: Theme.of(context).textTheme.titleSmall),
                     const SizedBox(height: 4),
                     DropdownButtonFormField<String>(
-                      value: releaseStatus,
+                      initialValue: releaseStatus,
                       items: const [
                         DropdownMenuItem(value: 'ongoing', child: Text('Ongoing')),
                         DropdownMenuItem(value: 'completed', child: Text('Completed')),

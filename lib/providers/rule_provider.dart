@@ -44,9 +44,6 @@ class RulesNotifier extends StateNotifier<List<RuleModel>> {
 
   Future<void> reorderRules(int oldIndex, int newIndex) async {
     final list = List<RuleModel>.from(state);
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
     final item = list.removeAt(oldIndex);
     list.insert(newIndex, item);
 

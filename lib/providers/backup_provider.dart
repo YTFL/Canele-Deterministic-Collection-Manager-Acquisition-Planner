@@ -17,7 +17,7 @@ class BackupNotifier extends StateNotifier<BackupMetadata> {
   void _loadAndInit() {
     try {
       final raw = HiveBoxes.ruleConfigBox.get('backup_metadata');
-      if (raw != null && raw is Map) {
+      if (raw != null) {
         state = BackupMetadata.fromMap(raw);
       }
     } catch (_) {}

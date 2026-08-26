@@ -17,7 +17,6 @@ class AddSeriesSheet extends ConsumerStatefulWidget {
 class _AddSeriesSheetState extends ConsumerState<AddSeriesSheet> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
-  final _typeController = TextEditingController();
   final _totalVolumesController = TextEditingController(text: '1');
   final _ownedCountController = TextEditingController(text: '0');
 

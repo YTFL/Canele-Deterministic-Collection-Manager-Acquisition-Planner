@@ -364,7 +364,6 @@ class DashboardScreen extends ConsumerWidget {
                     final needsUpdate = vol.releaseDate != null &&
                         !vol.releaseDate!.isAfter(now) &&
                         vol.availability == 'announced';
-                    final isUpcoming = !isOOS && !isOOP && !needsUpdate;
 
                     final group = isOOS
                         ? 'Out of Stock'
