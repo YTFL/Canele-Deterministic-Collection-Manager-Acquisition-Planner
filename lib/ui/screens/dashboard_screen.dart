@@ -201,7 +201,7 @@ class DashboardScreen extends ConsumerWidget {
                   Expanded(
                     child: _HeaderMetricCard(
                       label: 'Active Series',
-                      value: '${metrics.totalSeriesCount}',
+                      value: '${metrics.activeSeriesCount}',
                       icon: Icons.collections_bookmark_rounded,
                       subtitle: 'In collection',
                     ),

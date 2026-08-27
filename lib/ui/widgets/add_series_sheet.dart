@@ -107,17 +107,17 @@ class _AddSeriesSheetState extends ConsumerState<AddSeriesSheet> {
 
     final isMulti = _structure == SeriesStructure.multiVolume;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkPastryCard : Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
+    return Material(
+      color: isDark ? AppColors.darkPastryCard : Colors.white,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
       child: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -220,12 +220,12 @@ class _AddSeriesSheetState extends ConsumerState<AddSeriesSheet> {
                 segments: const [
                   ButtonSegment(
                     value: SeriesStructure.multiVolume,
-                    label: Text('Multi-Volume Series'),
+                    label: Text('Series'),
                     icon: Icon(Icons.auto_stories_rounded, size: 18),
                   ),
                   ButtonSegment(
                     value: SeriesStructure.standalone,
-                    label: Text('Standalone / Single'),
+                    label: Text('Single'),
                     icon: Icon(Icons.menu_book_rounded, size: 18),
                   ),
                 ],
@@ -241,8 +241,12 @@ class _AddSeriesSheetState extends ConsumerState<AddSeriesSheet> {
                       _releaseStatus = 'completed';
                       _markOwned = true;
                     } else {
+                      _totalVolumesController.text = '1';
+                      _ownedCountController.text = '0';
+                      _ownedCount = 0;
                       _collectionStatus = 'active';
                       _releaseStatus = 'ongoing';
+                      _markOwned = true;
                     }
                   });
                 },
@@ -505,8 +509,9 @@ class _AddSeriesSheetState extends ConsumerState<AddSeriesSheet> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 /// Gift vs Purchase segmented toggle

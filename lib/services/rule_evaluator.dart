@@ -94,8 +94,8 @@ class RuleEvaluator {
 
       contexts[s.id] = ctx;
 
-      // Exclude dropped or completed series from standard recommendations
-      if (s.collectionStatus != 'dropped' && s.collectionStatus != 'completed' && missingReleased.isNotEmpty) {
+      // Only include active series for standard recommendations (exclude wishlist, dropped, completed)
+      if (s.collectionStatus.toLowerCase() == 'active' && missingReleased.isNotEmpty) {
         activeContexts.add(ctx);
       }
     }

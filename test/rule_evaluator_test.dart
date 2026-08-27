@@ -275,7 +275,6 @@ void main() {
         availability: 'available',
         isOwned: false,
       );
-
       final slots = RuleEvaluator.evaluate(
         rules: [
           RuleModel(id: 'r_all', name: 'All Books', priorityOrder: 0),
@@ -287,6 +286,32 @@ void main() {
 
       expect(slots.length, 1);
       expect(slots.first.volume.id, 'vrel');
+    });
+
+    test('Strictly excludes wishlist, completed, and dropped series from recommendation slots', () {
+      final sWishlist = Series(id: 's_wish', title: 'Wishlist Series', type: 'Manga', collectionStatus: 'wishlist');
+      final sCompleted = Series(id: 's_comp', title: 'Completed Series', type: 'Manga', collectionStatus: 'completed');
+      final sDropped = Series(id: 's_drop', title: 'Dropped Series', type: 'Manga', collectionStatus: 'dropped');
+      final sActive = Series(id: 's_act', title: 'Active Series', type: 'Manga', collectionStatus: 'active');
+
+      final vWish = Volume(id: 'vw1', seriesId: 's_wish', volumeNumber: 1.0, isOwned: false, availability: 'available');
+      final vComp = Volume(id: 'vc1', seriesId: 's_comp', volumeNumber: 1.0, isOwned: false, availability: 'available');
+      final vDrop = Volume(id: 'vd1', seriesId: 's_drop', volumeNumber: 1.0, isOwned: false, availability: 'available');
+      final vAct = Volume(id: 'va1', seriesId: 's_act', volumeNumber: 1.0, isOwned: false, availability: 'available');
+
+      final slots = RuleEvaluator.evaluate(
+        rules: [
+          RuleModel(id: 'r_all', name: 'All Books', priorityOrder: 0),
+        ],
+        seriesList: [sWishlist, sCompleted, sDropped, sActive],
+        volumesList: [vWish, vComp, vDrop, vAct],
+        asOfDate: now,
+      );
+
+      // Only the active series volume should be recommended
+      expect(slots.length, 1);
+      expect(slots.first.series.id, 's_act');
+      expect(slots.first.volume.id, 'va1');
     });
   });
 }

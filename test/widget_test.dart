@@ -10,6 +10,7 @@ import 'package:canele/models/series.dart';
 import 'package:canele/models/volume.dart';
 import 'package:canele/models/purchase_transaction.dart';
 import 'package:canele/providers/series_provider.dart';
+import 'package:canele/ui/widgets/add_series_sheet.dart';
 import 'package:canele/ui/widgets/quota_status_card.dart';
 import 'package:canele/ui/widgets/canele_month_year_picker.dart';
 import 'package:canele/ui/screens/onboarding_screen.dart';
@@ -341,5 +342,44 @@ void main() {
     expect(find.text('Prioritize Restocked Volumes'), findsOneWidget);
     expect(find.text('Series Closer to Completion'), findsOneWidget);
     expect(find.text('Sequential Next Volume'), findsOneWidget);
+  });
+
+  testWidgets('AddSeriesSheet shows "Series" and "Single" labels and resets owned count when switching back to Series', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          seriesNotifierProvider.overrideWith((ref) => MockSeriesNotifier([])),
+          volumesNotifierProvider.overrideWith((ref) => MockVolumesNotifier([])),
+          transactionsNotifierProvider.overrideWith((ref) => MockTransactionsNotifier([])),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: AddSeriesSheet(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify segmented button labels are 'Series' and 'Single'
+    expect(find.text('Series'), findsOneWidget);
+    expect(find.text('Single'), findsOneWidget);
+
+    // Initially in Series mode with 0 owned volumes, so the "Mark Volumes" checkbox is not shown
+    expect(find.textContaining('Mark Volumes 1 to'), findsNothing);
+
+    // Switch to Single mode
+    await tester.tap(find.text('Single'));
+    await tester.pumpAndSettle();
+
+    // In Single mode, it shows 'Mark this book as Owned'
+    expect(find.text('Mark this book as Owned'), findsOneWidget);
+
+    // Switch back to Series mode
+    await tester.tap(find.text('Series'));
+    await tester.pumpAndSettle();
+
+    // After switching back to Series, owned count should be reset to 0, so "Mark Volumes 1 to 1 as Owned" should NOT exist
+    expect(find.textContaining('Mark Volumes 1 to'), findsNothing);
   });
 }
