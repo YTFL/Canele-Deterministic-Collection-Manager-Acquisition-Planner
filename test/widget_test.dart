@@ -15,6 +15,9 @@ import 'package:canele/ui/widgets/quota_status_card.dart';
 import 'package:canele/ui/widgets/canele_month_year_picker.dart';
 import 'package:canele/ui/screens/onboarding_screen.dart';
 import 'package:canele/ui/screens/series_detail_screen.dart';
+import 'package:canele/ui/screens/stats_screen.dart';
+import 'package:canele/ui/screens/dashboard_screen.dart';
+import 'package:canele/ui/screens/rule_studio_screen.dart';
 
 class MockRulesNotifier extends StateNotifier<List<RuleModel>> implements RulesNotifier {
   MockRulesNotifier(super.state);
@@ -159,7 +162,7 @@ void main() {
 
     // Verify all 12 month buttons are rendered
     for (final m in ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']) {
-      expect(find.text(m), findsOneWidget);
+      expect(find.text(m), findsWidgets);
     }
   });
 
@@ -381,5 +384,257 @@ void main() {
 
     // After switching back to Series, owned count should be reset to 0, so "Mark Volumes 1 to 1 as Owned" should NOT exist
     expect(find.textContaining('Mark Volumes 1 to'), findsNothing);
+  });
+
+  testWidgets('StatsScreen renders all metrics, sections, and breakdowns properly', (WidgetTester tester) async {
+    final config = RuleConfig(
+      timelineStartDate: DateTime(2024, 1, 1),
+      defaultRegularPerMonth: 1,
+      bonusMonths: const [5],
+    );
+
+    final mockSeries = [
+      const Series(
+        id: 'series1',
+        title: 'Frieren: Beyond Journey\'s End',
+        type: 'Manga',
+        collectionStatus: 'active',
+      ),
+      const Series(
+        id: 'series2',
+        title: 'Spice and Wolf',
+        type: 'Light Novel',
+        collectionStatus: 'completed',
+      ),
+    ];
+
+    final mockVolumes = [
+      const Volume(
+        id: 'vol1',
+        seriesId: 'series1',
+        volumeNumber: 1,
+        isOwned: true,
+        isGift: false,
+      ),
+      const Volume(
+        id: 'vol2',
+        seriesId: 'series1',
+        volumeNumber: 2,
+        isOwned: true,
+        isGift: true,
+      ),
+      const Volume(
+        id: 'vol3',
+        seriesId: 'series2',
+        volumeNumber: 1,
+        isOwned: true,
+        isGift: false,
+      ),
+    ];
+
+    final mockTx = [
+      PurchaseTransaction(
+        id: 'tx1',
+        volumeId: 'vol1',
+        purchaseDate: DateTime(2024, 1, 10),
+        quotaBucket: 'regular',
+        price: 12.99,
+      ),
+      PurchaseTransaction(
+        id: 'tx2',
+        volumeId: 'vol3',
+        purchaseDate: DateTime(2024, 2, 10),
+        quotaBucket: 'regular',
+        price: 14.99,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ruleConfigNotifierProvider.overrideWith((ref) => MockRuleConfigNotifier(config)),
+          seriesNotifierProvider.overrideWith((ref) => MockSeriesNotifier(mockSeries)),
+          volumesNotifierProvider.overrideWith((ref) => MockVolumesNotifier(mockVolumes)),
+          transactionsNotifierProvider.overrideWith((ref) => MockTransactionsNotifier(mockTx)),
+        ],
+        child: const MaterialApp(
+          home: StatsScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    // Verify Title and Section Headers
+    expect(find.text('Statistics & Insights'), findsOneWidget);
+    expect(find.text('Total Owned'), findsOneWidget);
+    expect(find.text('Total Series'), findsOneWidget);
+    expect(find.text('Acquisition Quota & Pace'), findsOneWidget);
+    expect(find.text('Bought vs. Gifted'), findsOneWidget);
+    expect(find.text('Series & Format Distribution'), findsOneWidget);
+
+    // Verify Metric Values
+    expect(find.text('3'), findsWidgets); // 3 Total Owned
+    expect(find.text('2'), findsWidgets); // 2 Total Series
+    expect(find.text('Bought Volumes'), findsOneWidget);
+    expect(find.text('Gifted Volumes'), findsOneWidget);
+  });
+
+  testWidgets('Tapping dashboard cards navigates to StatsScreen', (WidgetTester tester) async {
+    final config = RuleConfig(
+      timelineStartDate: DateTime(2024, 1, 1),
+      defaultRegularPerMonth: 1,
+      bonusMonths: const [5],
+    );
+
+    final mockSeries = [
+      const Series(
+        id: 'series1',
+        title: 'Frieren: Beyond Journey\'s End',
+        type: 'Manga',
+        collectionStatus: 'active',
+      ),
+    ];
+
+    final mockVolumes = [
+      const Volume(
+        id: 'vol1',
+        seriesId: 'series1',
+        volumeNumber: 1,
+        isOwned: true,
+        isGift: false,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ruleConfigNotifierProvider.overrideWith((ref) => MockRuleConfigNotifier(config)),
+          seriesNotifierProvider.overrideWith((ref) => MockSeriesNotifier(mockSeries)),
+          volumesNotifierProvider.overrideWith((ref) => MockVolumesNotifier(mockVolumes)),
+          transactionsNotifierProvider.overrideWith((ref) => MockTransactionsNotifier([])),
+        ],
+        child: const MaterialApp(
+          home: DashboardScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    // Tap on 'Total Owned' card
+    await tester.tap(find.text('Total Owned'));
+    await tester.pumpAndSettle();
+
+    // Verify we navigated to StatsScreen
+    expect(find.text('Statistics & Insights'), findsOneWidget);
+
+    // Pop back to dashboard
+    final NavigatorState navigator = tester.state(find.byType(Navigator));
+    navigator.pop();
+    await tester.pumpAndSettle();
+
+    // Tap on 'Active Series' card
+    await tester.tap(find.text('Active Series'));
+    await tester.pumpAndSettle();
+
+    // Verify navigated to StatsScreen
+    expect(find.text('Statistics & Insights'), findsOneWidget);
+  });
+
+  testWidgets('RuleStudioScreen hides Add Rule FAB when switched to Quota Cadence tab', (WidgetTester tester) async {
+    final config = RuleConfig.createDefault();
+    final List<RuleModel> mockRules = [
+      RuleModel(
+        id: 'r1',
+        name: 'Test Rule',
+        isEnabled: true,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ruleConfigNotifierProvider.overrideWith((ref) => MockRuleConfigNotifier(config)),
+          rulesNotifierProvider.overrideWith((ref) => MockRulesNotifier(mockRules)),
+        ],
+        child: const MaterialApp(
+          home: RuleStudioScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    // On Pass Pipeline tab (index 0), Add Rule FAB is visible
+    expect(find.widgetWithText(FloatingActionButton, 'Add Rule'), findsOneWidget);
+
+    // Tap on Quota Cadence tab
+    await tester.tap(find.text('Quota Cadence'));
+    await tester.pumpAndSettle();
+
+    // On Quota Cadence tab (index 1), Add Rule FAB is hidden
+    expect(find.widgetWithText(FloatingActionButton, 'Add Rule'), findsNothing);
+
+    // Tap back on Pass Pipeline tab
+    await tester.tap(find.text('Pass Pipeline'));
+    await tester.pumpAndSettle();
+
+    // FAB is visible again
+    expect(find.widgetWithText(FloatingActionButton, 'Add Rule'), findsOneWidget);
+  });
+
+  testWidgets('Onboarding Step 2 has Recurring No-Book Months card alongside Bonus Months', (WidgetTester tester) async {
+    final config = RuleConfig.createDefault();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ruleConfigNotifierProvider.overrideWith((ref) => MockRuleConfigNotifier(config)),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: OnboardingScreen(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Click continue to go to Step 2
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bonus Months'), findsOneWidget);
+    expect(find.text('Recurring No-Book Months'), findsOneWidget);
+  });
+
+  testWidgets('RuleStudioScreen renders Recurring No-Book Months card in Quota Cadence tab', (WidgetTester tester) async {
+    final config = RuleConfig(
+      timelineStartDate: DateTime(2024, 1, 1),
+      defaultRegularPerMonth: 1,
+      bonusMonths: const [12],
+      recurringNoBookMonths: const [6],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ruleConfigNotifierProvider.overrideWith((ref) => MockRuleConfigNotifier(config)),
+          rulesNotifierProvider.overrideWith((ref) => MockRulesNotifier([])),
+        ],
+        child: const MaterialApp(
+          home: RuleStudioScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Switch to Quota Cadence tab
+    await tester.tap(find.text('Quota Cadence'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Recurring No-Book Months'), findsOneWidget);
+    expect(find.text('Recurring Bonus Months'), findsOneWidget);
   });
 }

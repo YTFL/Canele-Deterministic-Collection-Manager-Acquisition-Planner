@@ -341,13 +341,15 @@ class UniversalImporter {
           ? RuleConfig.fromMap(currentMap)
           : RuleConfig.createDefault();
 
-      final mergedBonusMonths = {...currentConfig.bonusMonths, ...incomingConfig.bonusMonths}.toList();
-      final mergedNoBookMonths = {...currentConfig.noBookMonths, ...incomingConfig.noBookMonths}.toList();
+      final mergedBonusMonths = {...currentConfig.bonusMonths, ...incomingConfig.bonusMonths}.toList()..sort();
+      final mergedRecurringNoBookMonths = {...currentConfig.recurringNoBookMonths, ...incomingConfig.recurringNoBookMonths}.toList()..sort();
+      final mergedNoBookMonths = {...currentConfig.noBookMonths, ...incomingConfig.noBookMonths}.toList()..sort();
       final mergedLedger = Map<String, int>.from(currentConfig.customBonusLedger)
         ..addAll(incomingConfig.customBonusLedger);
 
       final mergedConfig = currentConfig.copyWith(
         bonusMonths: mergedBonusMonths,
+        recurringNoBookMonths: mergedRecurringNoBookMonths,
         noBookMonths: mergedNoBookMonths,
         customBonusLedger: mergedLedger,
       );

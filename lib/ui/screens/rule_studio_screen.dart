@@ -32,10 +32,18 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_handleTabChange);
+  }
+
+  void _handleTabChange() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_handleTabChange);
     _tabController.dispose();
     super.dispose();
   }
@@ -239,6 +247,57 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Updated recurring bonus schedule for ${_monthNames[monthNum - 1]}!'),
+          backgroundColor: AppColors.caramelizedAmber,
+        ),
+      );
+    }
+  }
+
+  void _onToggleRecurringNoBookMonth(int monthNum) async {
+    final config = ref.read(ruleConfigNotifierProvider);
+    final isSelected = config.recurringNoBookMonths.contains(monthNum);
+
+    // Prompt user for scope
+    final scopeChoice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(isSelected ? 'Remove Recurring No-Book Month?' : 'Add Recurring No-Book Month?'),
+        content: Text(
+          'How would you like to apply this recurring paused/no-book schedule for ${_monthNames[monthNum - 1]}?\n\n'
+          '• Apply from start date: Recalculates full historical quota timeline from start.\n'
+          '• Apply from current month forward: Keeps past quota calculations intact.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, null), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'from_now'),
+            child: const Text('From Now Forward'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, 'all_time'),
+            child: const Text('From Start Date'),
+          ),
+        ],
+      ),
+    );
+
+    if (scopeChoice == null) return;
+
+    final updatedNoBookMonths = List<int>.from(config.recurringNoBookMonths);
+    if (isSelected) {
+      updatedNoBookMonths.remove(monthNum);
+    } else {
+      updatedNoBookMonths.add(monthNum);
+    }
+    updatedNoBookMonths.sort();
+
+    final updatedConfig = config.copyWith(recurringNoBookMonths: updatedNoBookMonths);
+    await ref.read(ruleConfigNotifierProvider.notifier).updateConfig(updatedConfig);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Updated recurring no-book schedule for ${_monthNames[monthNum - 1]}!'),
           backgroundColor: AppColors.caramelizedAmber,
         ),
       );
@@ -533,6 +592,55 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
                                     isSelected: config.bonusMonths.contains(i + 1),
                                     isDark: isDark,
                                     onTap: () => _onToggleBonusMonth(i + 1),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Recurring No-Book Months Selection
+                CaneleCard(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Recurring No-Book Months', style: theme.textTheme.titleMedium),
+                      Text('Select annual months with 0 regular book budget (e.g. Budget pause, Travel)', style: theme.textTheme.bodySmall),
+                      const SizedBox(height: 12),
+                      Column(
+                        children: [
+                          Row(
+                            children: [
+                              for (int i = 0; i < 6; i++) ...[
+                                if (i > 0) const SizedBox(width: 6),
+                                Expanded(
+                                  child: _buildMonthGridButton(
+                                    label: _monthNames[i],
+                                    isSelected: config.recurringNoBookMonths.contains(i + 1),
+                                    isDark: isDark,
+                                    onTap: () => _onToggleRecurringNoBookMonth(i + 1),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              for (int i = 6; i < 12; i++) ...[
+                                if (i > 6) const SizedBox(width: 6),
+                                Expanded(
+                                  child: _buildMonthGridButton(
+                                    label: _monthNames[i],
+                                    isSelected: config.recurringNoBookMonths.contains(i + 1),
+                                    isDark: isDark,
+                                    onTap: () => _onToggleRecurringNoBookMonth(i + 1),
                                   ),
                                 ),
                               ],

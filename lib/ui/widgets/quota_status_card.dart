@@ -8,8 +8,9 @@ import 'canele_card.dart';
 
 class QuotaStatusCard extends ConsumerWidget {
   final QuotaSummary summary;
+  final VoidCallback? onTap;
 
-  const QuotaStatusCard({super.key, required this.summary});
+  const QuotaStatusCard({super.key, required this.summary, this.onTap});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -19,10 +20,12 @@ class QuotaStatusCard extends ConsumerWidget {
 
     final now = DateTime.now();
     final currentMonthKey = DateFormatter.toMonthKey(now);
-    final isCurrentMonthSkipped = config.noBookMonths.contains(currentMonthKey);
+    final isCurrentMonthSkipped = config.noBookMonths.contains(currentMonthKey) ||
+        config.recurringNoBookMonths.contains(now.month);
 
     return CaneleCard(
       padding: const EdgeInsets.all(16),
+      onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -30,40 +33,50 @@ class QuotaStatusCard extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? AppColors.darkPastryCardElevated
-                          : AppColors.pastryCrustLight,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.pie_chart_rounded,
-                      color: AppColors.caramelizedAmber,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Acquisition Quota & Ledger',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? AppColors.darkPastryCardElevated
+                            : AppColors.pastryCrustLight,
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      Text(
-                        '${DateFormatter.formatMonthYear(now)} · ${summary.activeMonthKeys.length} active schedule months',
-                        style: theme.textTheme.bodySmall,
+                      child: const Icon(
+                        Icons.pie_chart_rounded,
+                        color: AppColors.caramelizedAmber,
+                        size: 20,
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Acquisition Quota & Ledger',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            '${DateFormatter.formatMonthYear(now)} · ${summary.activeMonthKeys.length} active schedule months',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              if (onTap != null)
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 14,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
+                ),
             ],
           ),
           const SizedBox(height: 14),
@@ -127,10 +140,10 @@ class QuotaStatusCard extends ConsumerWidget {
                   label: 'Regular',
                   value: summary.regularRemaining > 0
                       ? '${summary.regularRemaining}'
-                      : (summary.regularRemaining == 0 ? '0' : '+${-summary.regularRemaining}'),
+                      : '0',
                   status: summary.regularRemaining > 0
                       ? 'Remaining'
-                      : (summary.regularRemaining == 0 ? 'Fulfilled' : 'Credit'),
+                      : 'Fulfilled',
                   valueColor: summary.regularRemaining > 0
                       ? (isDark ? AppColors.caramelizedAmberLight : AppColors.caramelizedAmber)
                       : (isDark ? AppColors.darkTextPrimary : AppColors.deepCaramel),
@@ -142,10 +155,10 @@ class QuotaStatusCard extends ConsumerWidget {
                   label: 'Bonus',
                   value: summary.bonusRemaining > 0
                       ? '${summary.bonusRemaining}'
-                      : (summary.bonusRemaining == 0 ? '0' : '+${-summary.bonusRemaining}'),
+                      : '0',
                   status: summary.bonusRemaining > 0
                       ? 'Remaining'
-                      : (summary.bonusRemaining == 0 ? 'Fulfilled' : 'Credit'),
+                      : 'Fulfilled',
                   valueColor: summary.bonusRemaining > 0
                       ? AppColors.statusWarning
                       : (isDark ? AppColors.darkTextPrimary : AppColors.deepCaramel),
@@ -156,10 +169,14 @@ class QuotaStatusCard extends ConsumerWidget {
                 child: _QuotaBalanceTile(
                   label: 'Total Open',
                   value: '${summary.totalRemaining}',
-                  status: 'To Acquire',
+                  status: summary.totalRemaining > 0
+                      ? 'To Acquire'
+                      : (summary.totalRemaining == 0 ? 'Fulfilled' : 'Credit'),
                   valueColor: summary.totalRemaining > 0
                       ? (isDark ? AppColors.caramelizedAmberLight : AppColors.caramelizedAmber)
-                      : (isDark ? AppColors.darkTextPrimary : AppColors.deepCaramel),
+                      : (summary.totalRemaining < 0
+                          ? (isDark ? AppColors.caramelizedAmberLight : AppColors.caramelizedAmber)
+                          : (isDark ? AppColors.darkTextPrimary : AppColors.deepCaramel)),
                 ),
               ),
             ],
@@ -200,14 +217,22 @@ class QuotaStatusCard extends ConsumerWidget {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () async {
-                    List<String> newNoBookMonths;
+                    final newNoBookMonths = List<String>.from(config.noBookMonths);
+                    final newRecurringNoBookMonths = List<int>.from(config.recurringNoBookMonths);
                     if (isCurrentMonthSkipped) {
-                      newNoBookMonths = config.noBookMonths.where((k) => k != currentMonthKey).toList();
+                      newNoBookMonths.remove(currentMonthKey);
+                      newRecurringNoBookMonths.remove(now.month);
                     } else {
-                      newNoBookMonths = [...config.noBookMonths, currentMonthKey]..sort();
+                      if (!newNoBookMonths.contains(currentMonthKey)) {
+                        newNoBookMonths.add(currentMonthKey);
+                        newNoBookMonths.sort();
+                      }
                     }
 
-                    final updatedConfig = config.copyWith(noBookMonths: newNoBookMonths);
+                    final updatedConfig = config.copyWith(
+                      noBookMonths: newNoBookMonths,
+                      recurringNoBookMonths: newRecurringNoBookMonths,
+                    );
                     await ref.read(ruleConfigNotifierProvider.notifier).updateConfig(updatedConfig);
 
                     if (context.mounted) {

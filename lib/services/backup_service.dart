@@ -27,7 +27,7 @@ class BackupService {
   bool _isPaused = false;
 
   String? _targetDirectoryPath;
-  bool _isAutoBackupEnabled = false;
+  bool _isAutoBackupEnabled = true;
   BackupMetadata _currentMetadata = BackupMetadata.initial();
   BackupMetadataCallback? _onMetadataChanged;
 
@@ -36,6 +36,28 @@ class BackupService {
   String? get targetDirectoryPath => _targetDirectoryPath;
   bool get isAutoBackupEnabled => _isAutoBackupEnabled;
   BackupMetadata get currentMetadata => _currentMetadata;
+
+  /// Loads persisted configuration from Hive on startup and starts listening immediately
+  void initFromStorage() {
+    try {
+      final raw = HiveBoxes.ruleConfigBox.get('backup_metadata');
+      if (raw != null) {
+        _currentMetadata = BackupMetadata.fromMap(raw);
+        _targetDirectoryPath = _currentMetadata.targetDirectoryPath;
+        _isAutoBackupEnabled = _currentMetadata.isAutoBackupEnabled;
+      } else {
+        _currentMetadata = BackupMetadata.initial();
+        _targetDirectoryPath = _currentMetadata.targetDirectoryPath;
+        _isAutoBackupEnabled = _currentMetadata.isAutoBackupEnabled;
+      }
+    } catch (e) {
+      debugPrint('[BackupService] initFromStorage error: $e');
+    }
+
+    if (_isAutoBackupEnabled) {
+      startListening();
+    }
+  }
 
   /// Requests runtime storage permissions on Android (All Files Access / MANAGE_EXTERNAL_STORAGE)
   static Future<bool> requestStoragePermissions() async {
@@ -108,6 +130,7 @@ class BackupService {
         return;
       }
 
+      debugPrint('[BackupService] Box mutation detected on key: ${event.key}. Triggering debounced auto-backup...');
       _triggerDebouncedBackup();
     }
 
@@ -117,6 +140,7 @@ class BackupService {
       _subscriptions.add(HiveBoxes.transactionsBox.watch().listen(onMutation));
       _subscriptions.add(HiveBoxes.rulesBox.watch().listen(onMutation));
       _subscriptions.add(HiveBoxes.ruleConfigBox.watch().listen(onMutation));
+      debugPrint('[BackupService] Active and listening to Hive box mutations.');
     } catch (e) {
       debugPrint('[BackupService] Error starting Hive watchers: $e');
     }
@@ -145,12 +169,13 @@ class BackupService {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(debounceDuration, () async {
       if (!_isPaused && _isAutoBackupEnabled) {
+        debugPrint('[BackupService] Debounce timer elapsed. Creating auto-backup snapshot...');
         await createBackupSnapshot();
       }
     });
   }
 
-  /// Resolves the exact user-selected target directory, or defaults to internal app documents directory if unconfigured
+  /// Resolves target directory
   Future<Directory> resolveTargetDirectory([String? customPath]) async {
     final candidatePath = customPath ?? _targetDirectoryPath;
 
@@ -170,6 +195,50 @@ class BackupService {
     return backupDir;
   }
 
+  /// Helper to atomically write snapshot and rotate rolling previous backup
+  Future<File> _writeAtomicSnapshot(
+    Directory dir,
+    String baseFileName,
+    String jsonContent,
+  ) async {
+    final tempFile = File('${dir.path}/canele_backup.tmp');
+    final mainFile = File('${dir.path}/$baseFileName.json');
+    final prevFile = File('${dir.path}/${baseFileName}_prev.json');
+
+    // 1. Write to temp file
+    await tempFile.writeAsString(jsonContent, flush: true);
+
+    // 2. Rotate previous backup
+    if (await mainFile.exists()) {
+      try {
+        if (await prevFile.exists()) {
+          await prevFile.delete();
+        }
+        await mainFile.rename(prevFile.path);
+      } catch (_) {
+        try {
+          await mainFile.copy(prevFile.path);
+          await mainFile.delete();
+        } catch (_) {}
+      }
+    }
+
+    // 3. Move temp to main
+    File finalFile;
+    try {
+      finalFile = await tempFile.rename(mainFile.path);
+    } catch (_) {
+      finalFile = await tempFile.copy(mainFile.path);
+      try {
+        if (await tempFile.exists()) {
+          await tempFile.delete();
+        }
+      } catch (_) {}
+    }
+
+    return finalFile;
+  }
+
   /// Creates atomic snapshot with rolling secondary backup strictly in the selected target directory
   Future<File?> createBackupSnapshot({
     String? targetDirectory,
@@ -182,72 +251,58 @@ class BackupService {
     _onMetadataChanged?.call(_currentMetadata);
 
     try {
-      if (Platform.isAndroid && (_targetDirectoryPath != null || targetDirectory != null)) {
-        await requestStoragePermissions();
-      }
-
-      final dir = await resolveTargetDirectory(targetDirectory);
       final jsonContent = UniversalExporter.exportFullAppStateToJson(indent: true);
+      final customPath = targetDirectory ?? _targetDirectoryPath;
 
-      final tempFile = File('${dir.path}/canele_backup.tmp');
-      final mainFile = File('${dir.path}/$baseFileName.json');
-      final prevFile = File('${dir.path}/${baseFileName}_prev.json');
+      File? writtenFile;
+      String? errorMsg;
 
-      // 1. Write to temp file
-      await tempFile.writeAsString(jsonContent, flush: true);
-
-      // 2. Rolling backup: Rotate existing main backup to prev
-      if (await mainFile.exists()) {
+      // 1. Try writing to custom directory if configured
+      if (customPath != null && customPath.trim().isNotEmpty) {
         try {
-          if (await prevFile.exists()) {
-            await prevFile.delete();
+          final customDir = Directory(customPath);
+          if (!await customDir.exists()) {
+            await customDir.create(recursive: true);
           }
-          await mainFile.rename(prevFile.path);
-        } catch (_) {
-          try {
-            await mainFile.copy(prevFile.path);
-            await mainFile.delete();
-          } catch (_) {}
+          writtenFile = await _writeAtomicSnapshot(customDir, baseFileName, jsonContent);
+        } catch (e) {
+          debugPrint('[BackupService] Custom folder write failed: $e');
+          errorMsg = e.toString();
+          if (Platform.isAndroid && (errorMsg.contains('errno = 1') || errorMsg.contains('errno = 13'))) {
+            errorMsg = 'Storage permission required. Please enable "All Files Access" for Canelé in Android Settings.';
+          }
         }
       }
 
-      // 3. Atomic move temp to destination main file
-      File finalFile;
-      try {
-        finalFile = await tempFile.rename(mainFile.path);
-      } catch (_) {
-        finalFile = await tempFile.copy(mainFile.path);
-        if (await tempFile.exists()) {
-          try {
-            await tempFile.delete();
-          } catch (_) {}
+      // 2. If no custom directory OR custom directory failed, write to guaranteed app docs directory
+      if (writtenFile == null) {
+        final appDocDir = await getApplicationDocumentsDirectory();
+        final backupDir = Directory('${appDocDir.path}/canele_backups');
+        if (!await backupDir.exists()) {
+          await backupDir.create(recursive: true);
         }
+        writtenFile = await _writeAtomicSnapshot(backupDir, baseFileName, jsonContent);
       }
 
-      final fileSize = await finalFile.length();
+      final fileSize = await writtenFile.length();
       final now = DateTime.now();
 
       _currentMetadata = _currentMetadata.copyWith(
-        targetDirectoryPath: _targetDirectoryPath ?? dir.path,
+        targetDirectoryPath: _targetDirectoryPath ?? writtenFile.parent.path,
         lastBackupTime: now,
         lastBackupSizeBytes: fileSize,
-        lastBackupStatus: 'success',
-        clearErrorMessage: true,
+        lastBackupStatus: errorMsg != null ? 'error' : 'success',
+        lastErrorMessage: errorMsg,
       );
       _onMetadataChanged?.call(_currentMetadata);
 
-      return finalFile;
+      debugPrint('[BackupService] Auto-backup successfully written: ${writtenFile.path} ($fileSize bytes)');
+      return writtenFile;
     } catch (e) {
-      debugPrint('[BackupService] Backup creation failed in target directory: $e');
-
-      String errorMessage = e.toString();
-      if (Platform.isAndroid && (errorMessage.contains('errno = 1') || errorMessage.contains('errno = 13'))) {
-        errorMessage = 'Storage permission required. Please enable "All Files Access" for Canelé in Android Settings.';
-      }
-
+      debugPrint('[BackupService] Backup creation failed: $e');
       _currentMetadata = _currentMetadata.copyWith(
         lastBackupStatus: 'error',
-        lastErrorMessage: errorMessage,
+        lastErrorMessage: e.toString(),
       );
       _onMetadataChanged?.call(_currentMetadata);
       return null;

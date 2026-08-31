@@ -27,8 +27,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   late DateTime _startDate;
   int _regularPerMonth = 1;
 
-  // Step 2 State: Recurring Bonus Months (Optional)
+  // Step 2 State: Recurring Bonus Months & Recurring No-Book Months (Optional)
   final Set<int> _selectedBonusMonths = {};
+  final Set<int> _selectedRecurringNoBookMonths = {};
 
   // Step 3 State: Historical Catch-Up
   final Set<String> _selectedNoBookMonths = {};
@@ -66,6 +67,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       timelineStartDate: _startDate,
       defaultRegularPerMonth: _regularPerMonth,
       bonusMonths: _selectedBonusMonths.toList()..sort(),
+      recurringNoBookMonths: _selectedRecurringNoBookMonths.toList()..sort(),
       noBookMonths: _selectedNoBookMonths.toList()..sort(),
       customBonusLedger: _customBonusLedger,
       manualBonusCount: 0,
@@ -495,6 +497,137 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     ],
                   ),
                 ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        CaneleCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Recurring No-Book Months', style: theme.textTheme.titleMedium),
+                  if (_selectedRecurringNoBookMonths.isNotEmpty)
+                    TextButton(
+                      onPressed: () => setState(() => _selectedRecurringNoBookMonths.clear()),
+                      child: const Text('Clear All'),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Select annual months where you pause regular acquisitions (0 regular books).',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+
+              Column(
+                children: [
+                  Row(
+                    children: [
+                      for (int i = 0; i < 6; i++) ...[
+                        if (i > 0) const SizedBox(width: 6),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () {
+                              final monthNum = i + 1;
+                              setState(() {
+                                if (_selectedRecurringNoBookMonths.contains(monthNum)) {
+                                  _selectedRecurringNoBookMonths.remove(monthNum);
+                                } else {
+                                  _selectedRecurringNoBookMonths.add(monthNum);
+                                }
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: _selectedRecurringNoBookMonths.contains(i + 1)
+                                    ? AppColors.caramelizedAmber.withValues(alpha: isDark ? 0.25 : 0.15)
+                                    : (isDark ? AppColors.darkPastryCardElevated : AppColors.pastryCrustLight),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: _selectedRecurringNoBookMonths.contains(i + 1)
+                                      ? AppColors.caramelizedAmber
+                                      : (isDark ? AppColors.darkPastryBorder : AppColors.pastryCrustBorder),
+                                  width: _selectedRecurringNoBookMonths.contains(i + 1) ? 1.5 : 1.0,
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                _monthNames[i],
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: _selectedRecurringNoBookMonths.contains(i + 1) ? FontWeight.w800 : FontWeight.w600,
+                                  color: _selectedRecurringNoBookMonths.contains(i + 1)
+                                      ? (isDark ? AppColors.caramelizedAmberLight : AppColors.caramelizedAmber)
+                                      : (isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      for (int i = 6; i < 12; i++) ...[
+                        if (i > 6) const SizedBox(width: 6),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () {
+                              final monthNum = i + 1;
+                              setState(() {
+                                if (_selectedRecurringNoBookMonths.contains(monthNum)) {
+                                  _selectedRecurringNoBookMonths.remove(monthNum);
+                                } else {
+                                  _selectedRecurringNoBookMonths.add(monthNum);
+                                }
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: _selectedRecurringNoBookMonths.contains(i + 1)
+                                    ? AppColors.caramelizedAmber.withValues(alpha: isDark ? 0.25 : 0.15)
+                                    : (isDark ? AppColors.darkPastryCardElevated : AppColors.pastryCrustLight),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: _selectedRecurringNoBookMonths.contains(i + 1)
+                                      ? AppColors.caramelizedAmber
+                                      : (isDark ? AppColors.darkPastryBorder : AppColors.pastryCrustBorder),
+                                  width: _selectedRecurringNoBookMonths.contains(i + 1) ? 1.5 : 1.0,
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                _monthNames[i],
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: _selectedRecurringNoBookMonths.contains(i + 1) ? FontWeight.w800 : FontWeight.w600,
+                                  color: _selectedRecurringNoBookMonths.contains(i + 1)
+                                      ? (isDark ? AppColors.caramelizedAmberLight : AppColors.caramelizedAmber)
+                                      : (isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
             ],
           ),
         ),

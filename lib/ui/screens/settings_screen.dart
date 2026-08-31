@@ -173,46 +173,6 @@ class SettingsScreen extends ConsumerWidget {
                 },
               ),
             ),
-            const SizedBox(height: 20),
-
-            // Specification & About Card
-            Text('About Project Canelé', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            CaneleCard(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: AppColors.caramelizedAmber,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.verified_rounded, color: Colors.white, size: 18),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Deterministic Acquisition Architecture',
-                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    '• Local-First: 100% of your data stays on this device.\n'
-                    '• Zero AI: Transparent arithmetic and multi-pass pipeline rules.\n'
-                    '• Auto-Skip Resolution: Automatically advances schedule timeline when ahead on quota.\n'
-                    '• Universal Importer: Native support for Goodreads, StoryGraph, CSV, and XLSX.\n'
-                    '• Fractional Volumes: Native support for .5 side-stories.\n'
-                    '• Canelé Palette: Custard cream, caramelized amber, and warm pastry crust.',
-                    style: theme.textTheme.bodySmall?.copyWith(height: 1.5),
-                  ),
-                ],
-              ),
-            ),
             const SizedBox(height: 30),
           ],
         ),

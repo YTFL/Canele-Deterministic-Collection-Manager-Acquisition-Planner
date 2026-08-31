@@ -9,6 +9,7 @@ import '../../models/purchase_transaction.dart';
 import '../../providers/series_provider.dart';
 import '../../providers/quota_provider.dart';
 import 'canele_dropdown.dart';
+import '../helpers/series_status_prompt_helper.dart';
 
 String _availabilityLabel(String key) {
   switch (key) {
@@ -34,8 +35,8 @@ class LogTransactionSheet extends ConsumerStatefulWidget {
     BuildContext context, {
     Series? series,
     Volume? volume,
-  }) {
-    return showModalBottomSheet(
+  }) async {
+    final resultSeriesId = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -44,6 +45,10 @@ class LogTransactionSheet extends ConsumerStatefulWidget {
         initialVolume: volume,
       ),
     );
+
+    if (resultSeriesId != null && context.mounted) {
+      await SeriesStatusPromptHelper.checkAndPrompt(context, seriesId: resultSeriesId);
+    }
   }
 
   @override
@@ -103,8 +108,10 @@ class _LogTransactionSheetState extends ConsumerState<LogTransactionSheet> {
     );
     await ref.read(transactionsNotifierProvider.notifier).saveTransaction(tx);
 
+    final targetSeriesId = _selectedSeries?.id ?? _selectedVolume!.seriesId;
+
     if (mounted) {
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(targetSeriesId);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(

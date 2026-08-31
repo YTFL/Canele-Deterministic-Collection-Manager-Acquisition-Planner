@@ -69,7 +69,7 @@ class BackupMetadata {
   static BackupMetadata initial() {
     return const BackupMetadata(
       targetDirectoryPath: null,
-      isAutoBackupEnabled: false,
+      isAutoBackupEnabled: true,
       lastBackupTime: null,
       lastBackupSizeBytes: 0,
       lastBackupStatus: 'idle',

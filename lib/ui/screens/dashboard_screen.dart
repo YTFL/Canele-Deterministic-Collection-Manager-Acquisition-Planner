@@ -12,6 +12,7 @@ import '../widgets/quota_status_card.dart';
 import '../widgets/recommendation_slot_card.dart';
 import '../widgets/log_transaction_sheet.dart';
 import 'series_detail_screen.dart';
+import 'stats_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -195,6 +196,13 @@ class DashboardScreen extends ConsumerWidget {
                       value: '${metrics.totalOwned}',
                       icon: Icons.auto_stories_rounded,
                       subtitle: 'Physical volumes',
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const StatsScreen(),
+                          ),
+                        );
+                      },
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -204,6 +212,13 @@ class DashboardScreen extends ConsumerWidget {
                       value: '${metrics.activeSeriesCount}',
                       icon: Icons.collections_bookmark_rounded,
                       subtitle: 'In collection',
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const StatsScreen(),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -211,7 +226,16 @@ class DashboardScreen extends ConsumerWidget {
               const SizedBox(height: 16),
 
               // 2. Quota & Credit Engine Card
-              QuotaStatusCard(summary: quotaSummary),
+              QuotaStatusCard(
+                summary: quotaSummary,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const StatsScreen(),
+                    ),
+                  );
+                },
+              ),
               const SizedBox(height: 20),
 
               // 3. Recommendation Pipeline Header
@@ -642,12 +666,14 @@ class _HeaderMetricCard extends StatelessWidget {
   final String value;
   final IconData icon;
   final String subtitle;
+  final VoidCallback? onTap;
 
   const _HeaderMetricCard({
     required this.label,
     required this.value,
     required this.icon,
     required this.subtitle,
+    this.onTap,
   });
 
   @override
@@ -656,6 +682,7 @@ class _HeaderMetricCard extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     return CaneleCard(
+      onTap: onTap,
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

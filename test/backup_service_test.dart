@@ -111,6 +111,7 @@ void main() {
         timelineStartDate: DateTime(2024, 1, 1),
         defaultRegularPerMonth: 2,
         bonusMonths: const [5, 12],
+        recurringNoBookMonths: const [8],
         noBookMonths: const ['2024-06', '2024-09'],
         manualBonusCount: 3,
         customBonusLedger: const {'2024-07': 1, '2025-01': 2},
@@ -134,6 +135,7 @@ void main() {
       expect(configMap['customBonusLedger']['2024-07'], 1);
       expect(configMap['customBonusLedger']['2025-01'], 2);
       expect(configMap['bonusMonths'], [5, 12]);
+      expect(configMap['recurringNoBookMonths'], [8]);
       expect(configMap['noBookMonths'], ['2024-06', '2024-09']);
 
       // 3. Test Restore Replace All
@@ -153,6 +155,7 @@ void main() {
       final restoredConfig = RuleConfig.fromMap(HiveBoxes.ruleConfigBox.get('global_config')!);
       expect(restoredConfig.customBonusLedger['2024-07'], 1);
       expect(restoredConfig.bonusMonths, [5, 12]);
+      expect(restoredConfig.recurringNoBookMonths, [8]);
     });
 
     test('Atomic file write rotates to rolling previous backup (canele_autobackup_prev.json)', () async {

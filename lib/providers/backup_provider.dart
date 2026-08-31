@@ -10,7 +10,7 @@ final backupServiceProvider = Provider<BackupService>((ref) {
 class BackupNotifier extends StateNotifier<BackupMetadata> {
   final Ref _ref;
 
-  BackupNotifier(this._ref) : super(BackupMetadata.initial()) {
+  BackupNotifier(this._ref) : super(BackupService.instance.currentMetadata) {
     _loadAndInit();
   }
 
@@ -19,8 +19,12 @@ class BackupNotifier extends StateNotifier<BackupMetadata> {
       final raw = HiveBoxes.ruleConfigBox.get('backup_metadata');
       if (raw != null) {
         state = BackupMetadata.fromMap(raw);
+      } else {
+        state = BackupService.instance.currentMetadata;
       }
-    } catch (_) {}
+    } catch (_) {
+      state = BackupService.instance.currentMetadata;
+    }
 
     // Configure singleton service
     final service = _ref.read(backupServiceProvider);

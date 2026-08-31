@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/database/hive_boxes.dart';
 import 'core/theme/app_theme.dart';
+import 'providers/backup_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/quota_provider.dart';
+import 'services/backup_service.dart';
 import 'ui/screens/main_shell_screen.dart';
 import 'ui/screens/onboarding_screen.dart';
 
@@ -12,6 +14,9 @@ void main() async {
 
   // Initialize Hive Boxes
   await HiveBoxes.init();
+
+  // Initialize BackupService listener from persisted settings
+  BackupService.instance.initFromStorage();
 
   runApp(
     const ProviderScope(
@@ -27,6 +32,7 @@ class CaneleApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeNotifierProvider);
     final config = ref.watch(ruleConfigNotifierProvider);
+    ref.watch(backupNotifierProvider); // Keep auto-backup state notifier active across entire app
 
     return MaterialApp(
       title: 'Project Canelé',

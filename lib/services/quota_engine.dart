@@ -38,6 +38,9 @@ class QuotaSummary {
     required this.activeMonthKeys,
   });
 
+  int get regularRemainingDisplay => regularRemaining > 0 ? regularRemaining : 0;
+  int get bonusRemainingDisplay => bonusRemaining > 0 ? bonusRemaining : 0;
+
   String get suggestedAutoBucket {
     if (regularRemaining > 0) {
       return 'regular';
@@ -76,24 +79,27 @@ class QuotaEngine {
       current = DateTime(current.year, current.month + 1, 1);
     }
 
-    // Filter active months (exclude noBookMonths)
-    final activeMonthKeys = allMonthKeys
-        .where((key) => !config.noBookMonths.contains(key))
-        .toList();
+    // Filter active months (exclude noBookMonths & recurringNoBookMonths)
+    final activeMonthKeys = allMonthKeys.where((key) {
+      if (config.noBookMonths.contains(key)) return false;
+      final date = DateFormatter.fromMonthKey(key);
+      if (config.recurringNoBookMonths.contains(date.month)) return false;
+      return true;
+    }).toList();
 
     final regularExpected = activeMonthKeys.length * config.defaultRegularPerMonth;
 
     // Bonus expected:
-    // 1. Recurring bonus months occurred in timeline
+    // 1. Recurring bonus months occurred in timeline (bonus books count even if regular books are paused in that month)
     int recurringBonusMonthsOccurred = 0;
-    for (final monthKey in activeMonthKeys) {
+    for (final monthKey in allMonthKeys) {
       final date = DateFormatter.fromMonthKey(monthKey);
       if (config.bonusMonths.contains(date.month)) {
         recurringBonusMonthsOccurred++;
       }
     }
 
-    // 2. Custom bonus ledger one-off entries occurred up to now
+    // 2. Custom bonus ledger one-off entries occurred up to now (bonus books count even if regular books are paused in that month)
     int customLedgerBonusCount = 0;
     config.customBonusLedger.forEach((monthKey, bonusCount) {
       final date = DateFormatter.fromMonthKey(monthKey);
@@ -105,48 +111,68 @@ class QuotaEngine {
     final bonusExpected = recurringBonusMonthsOccurred + customLedgerBonusCount + config.manualBonusCount;
 
     // Transactions breakdown
-    int regularBought = 0;
-    int bonusBought = 0;
+    int totalBought = 0;
     int giftsCount = 0;
     double totalSpent = 0.0;
 
     for (final t in transactions) {
       totalSpent += t.price;
-      if (t.quotaBucket == 'regular') {
-        regularBought++;
-      } else if (t.quotaBucket == 'bonus') {
-        bonusBought++;
-      } else if (t.quotaBucket == 'gift') {
+      if (t.quotaBucket == 'gift') {
         giftsCount++;
+      } else {
+        totalBought++;
       }
     }
 
+    // Dynamically allocate bought books: fill regular quota first, remainder to bonus quota
+    final int regularBought = min(totalBought, regularExpected);
+    final int bonusBought = totalBought - regularBought;
+
     final regularRemaining = regularExpected - regularBought;
     final bonusRemaining = bonusExpected - bonusBought;
-    final int totalRemaining = max<int>(0, regularRemaining) + max<int>(0, bonusRemaining);
-    final isAhead = regularRemaining < 0;
-    final creditsCount = isAhead ? (regularBought - regularExpected) : 0;
+    final int totalRemaining = regularRemaining + bonusRemaining;
+    final int totalExpected = regularExpected + bonusExpected;
+    final isAhead = totalRemaining < 0;
+    final creditsCount = isAhead ? (totalBought - totalExpected) : 0;
 
     String? projectedCatchUpMonth;
     String? projectedCatchUpKey;
     int monthsAhead = 0;
 
     if (isAhead) {
-      // Simulate future months until cumulative regular expected >= regularBought
-      int simCumulativeExpected = regularExpected;
+      // Simulate future months until cumulative expected >= totalBought
+      int simCumulativeRegular = regularExpected;
+      int simCumulativeBonus = bonusExpected;
       var simMonth = DateTime(now.year, now.month + 1, 1);
       int futureActiveMonthsCount = 0;
+      int simIterations = 0;
 
-      while (simCumulativeExpected < regularBought) {
+      while ((simCumulativeRegular + simCumulativeBonus) < totalBought && simIterations < 1200) {
+        simIterations++;
         final key = DateFormatter.toMonthKey(simMonth);
-        if (!config.noBookMonths.contains(key)) {
-          simCumulativeExpected += config.defaultRegularPerMonth;
+        final isNoBook = config.noBookMonths.contains(key) ||
+            config.recurringNoBookMonths.contains(simMonth.month);
+        final hasBonus = config.bonusMonths.contains(simMonth.month);
+        final customBonus = config.customBonusLedger[key] ?? 0;
+
+        if (!isNoBook) {
+          simCumulativeRegular += config.defaultRegularPerMonth;
+        }
+        if (hasBonus) {
+          simCumulativeBonus++;
+        }
+        if (customBonus > 0) {
+          simCumulativeBonus += customBonus;
+        }
+
+        if (!isNoBook || hasBonus || customBonus > 0) {
           futureActiveMonthsCount++;
-          if (simCumulativeExpected >= regularBought) {
-            projectedCatchUpKey = key;
-            projectedCatchUpMonth = DateFormatter.formatMonthYear(simMonth);
-            break;
-          }
+        }
+
+        if ((simCumulativeRegular + simCumulativeBonus) >= totalBought) {
+          projectedCatchUpKey = key;
+          projectedCatchUpMonth = DateFormatter.formatMonthYear(simMonth);
+          break;
         }
         simMonth = DateTime(simMonth.year, simMonth.month + 1, 1);
       }

@@ -12,6 +12,7 @@ import '../widgets/canele_card.dart';
 import '../widgets/canele_progress_bar.dart';
 import '../widgets/volume_checklist_tile.dart';
 import '../widgets/log_transaction_sheet.dart';
+import '../helpers/series_status_prompt_helper.dart';
 
 class SeriesDetailScreen extends ConsumerStatefulWidget {
   final String seriesId;
@@ -25,7 +26,7 @@ class SeriesDetailScreen extends ConsumerStatefulWidget {
 class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
   String _volumeFilter = 'all'; // all, missing, owned
 
-  void _showAddVolumeDialog(BuildContext context, {Volume? existingVolume}) {
+  void _showAddVolumeDialog({Volume? existingVolume}) async {
     final isEditing = existingVolume != null;
     String defaultVolNum = '1';
     if (!isEditing) {
@@ -53,7 +54,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
     bool isOwned = isEditing ? existingVolume.isOwned : false;
     bool isGift = isEditing ? existingVolume.isGift : false;
 
-    showDialog(
+    final saved = await showDialog<bool>(
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
@@ -226,7 +227,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
+                  onPressed: () => Navigator.of(ctx).pop(false),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
@@ -251,7 +252,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     );
 
                     await ref.read(volumesNotifierProvider.notifier).saveVolume(volume);
-                    if (ctx.mounted) Navigator.of(ctx).pop();
+                    if (ctx.mounted) Navigator.of(ctx).pop(true);
                   },
                   child: Text(isEditing ? 'Save' : 'Add Volume'),
                 ),
@@ -261,6 +262,10 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
         );
       },
     );
+
+    if (saved == true && mounted) {
+      await SeriesStatusPromptHelper.checkAndPrompt(context, seriesId: widget.seriesId, ref: ref);
+    }
   }
 
   void _showBatchAddDialog(BuildContext context) {
@@ -371,7 +376,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
     );
   }
 
-  void _showEditSeriesDialog(BuildContext context, Series series) {
+  void _showEditSeriesDialog(Series series) async {
     final titleController = TextEditingController(text: series.title);
     final allSeries = ref.read(seriesNotifierProvider);
     final availableTypes = TypeHelper.getAllAvailableTypes(allSeries.map((s) => s.type));
@@ -379,7 +384,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
     String status = series.collectionStatus;
     String releaseStatus = series.releaseStatus;
 
-    showDialog(
+    final saved = await showDialog<bool>(
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
@@ -464,7 +469,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
+                  onPressed: () => Navigator.of(ctx).pop(false),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
@@ -477,7 +482,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     );
 
                     await ref.read(seriesNotifierProvider.notifier).saveSeries(updated);
-                    if (ctx.mounted) Navigator.of(ctx).pop();
+                    if (ctx.mounted) Navigator.of(ctx).pop(true);
                   },
                   child: const Text('Save'),
                 ),
@@ -487,6 +492,10 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
         );
       },
     );
+
+    if (saved == true && mounted) {
+      await SeriesStatusPromptHelper.checkAndPrompt(context, seriesId: widget.seriesId, ref: ref);
+    }
   }
 
   @override
@@ -524,7 +533,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
         title: Text(series.title),
         actions: [
           IconButton(
-            onPressed: () => _showEditSeriesDialog(context, series),
+            onPressed: () => _showEditSeriesDialog(series),
             icon: const Icon(Icons.edit_outlined),
             tooltip: 'Edit Series',
           ),
@@ -663,7 +672,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () => _showAddVolumeDialog(context),
+                    onPressed: () => _showAddVolumeDialog(),
                     icon: const Icon(Icons.add_rounded, size: 18),
                     label: const Text('Add Volume'),
                   ),
@@ -737,7 +746,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     final updated = vol.copyWith(isRestockedWatchlist: val);
                     ref.read(volumesNotifierProvider.notifier).saveVolume(updated);
                   },
-                  onEdit: () => _showAddVolumeDialog(context, existingVolume: vol),
+                  onEdit: () => _showAddVolumeDialog(existingVolume: vol),
                   onDelete: () async {
                     await ref.read(volumesNotifierProvider.notifier).deleteVolume(vol.id);
                   },

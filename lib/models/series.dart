@@ -65,7 +65,7 @@ class Series {
     return Series(
       id: map['id'] as String? ?? '',
       title: map['title'] as String? ?? '',
-      type: map['type'] as String? ?? 'lightNovel',
+      type: map['type']?.toString() ?? '',
       collectionStatus: rawStatus.toString(),
       releaseStatus: map['releaseStatus'] as String? ?? 'ongoing',
       totalVolumesReleased: map['totalVolumesReleased'] as int?,

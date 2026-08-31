@@ -4,6 +4,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/utils/type_helper.dart';
 import '../../providers/series_provider.dart';
 import 'canele_dropdown.dart';
+import '../helpers/series_status_prompt_helper.dart';
 
 enum SeriesStructure { multiVolume, standalone }
 
@@ -480,7 +481,7 @@ class _AddSeriesSheetState extends ConsumerState<AddSeriesSheet> {
 
                       final owned = isMulti ? _ownedCount : (_markOwned ? 1 : 0);
 
-                      await ref.read(seriesNotifierProvider.notifier).createSeriesWithVolumes(
+                      final series = await ref.read(seriesNotifierProvider.notifier).createSeriesWithVolumes(
                         title: _titleController.text.trim(),
                         type: TypeHelper.normalizeKey(_selectedType ?? 'book'),
                         collectionStatus: _collectionStatus,
@@ -492,7 +493,7 @@ class _AddSeriesSheetState extends ConsumerState<AddSeriesSheet> {
                       );
 
                       if (context.mounted) {
-                        Navigator.of(context).pop();
+                        Navigator.of(context).pop(series.id);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
@@ -554,11 +555,15 @@ class _GiftPurchaseToggle extends StatelessWidget {
 }
 
 /// Helper to show AddSeriesSheet as a modal bottom sheet
-Future<void> showAddSeriesSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
+Future<void> showAddSeriesSheet(BuildContext context) async {
+  final createdSeriesId = await showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (ctx) => const AddSeriesSheet(),
   );
+
+  if (createdSeriesId != null && context.mounted) {
+    await SeriesStatusPromptHelper.checkAndPrompt(context, seriesId: createdSeriesId);
+  }
 }
