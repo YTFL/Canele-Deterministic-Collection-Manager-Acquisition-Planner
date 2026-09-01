@@ -47,7 +47,9 @@ class _ImportReviewScreenState extends ConsumerState<ImportReviewScreen> {
   Future<void> _commitImport() async {
     final selected = _items.where((i) => i.isSelected).toList();
     if (selected.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
         const SnackBar(content: Text('No items selected for import.')),
       );
       return;
@@ -128,7 +130,9 @@ class _ImportReviewScreenState extends ConsumerState<ImportReviewScreen> {
 
     if (mounted) {
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
         SnackBar(
           content: Text(
             'Import complete: $volumesCreated volumes across $seriesCreated new series!',

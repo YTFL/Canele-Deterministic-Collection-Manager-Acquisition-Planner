@@ -1,12 +1,12 @@
-# Project Canelé 🍮
+# Canelé 🍮
 
 [![Flutter](https://img.shields.io/badge/Flutter-%2302569B.svg?style=flat&logo=Flutter&logoColor=white)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-0175C2?style=flat&logo=dart&logoColor=white)](https://dart.dev)
-[![License: MIT](https://img.shields.io/badge/License-MIT-amber.svg)](LICENSE)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL_3.0-amber.svg)](LICENSE)
 [![Local First](https://img.shields.io/badge/Storage-Hive%20Local--First-8C4A2F)](https://pub.dev/packages/hive)
 [![Zero AI](https://img.shields.io/badge/Logic-100%25%20Deterministic-3B7A57)](#deterministic-quota-engine)
 
-**Project Canelé** is a local-first, deterministic book collection manager and acquisition planner built with Flutter and Riverpod. Designed for collectors of light novels, manga, comics, and books, Canelé replaces opaque recommendation algorithms with an auditable, multi-pass priority waterfall and a mathematical quota cadence system.
+**Canelé** is a local-first, deterministic book collection manager and acquisition planner built with Flutter and Riverpod. Designed for collectors of light novels, manga, comics, and books, Canelé replaces opaque recommendation algorithms with an auditable, multi-pass priority waterfall and a mathematical quota cadence system.
 
 ---
 
@@ -55,7 +55,7 @@
 
 ## Design Philosophy & Aesthetic
 
-Project Canelé takes visual inspiration from the French *canelé de Bordeaux* pastry:
+Canelé takes visual inspiration from the French *canelé de Bordeaux* pastry:
 - **Custard Cream (`#FDFBF7`)**: Soft, warm background tint that eliminates harsh contrast.
 - **Caramelized Amber (`#8C4A2F` / `#C86D46`)**: Rich accent and action tone reflecting the caramelized shell.
 - **Warm Pastry Crust (`#EADBCE` / `#DCC8B6`)**: Subtle card fills and borders that delineate UI surfaces.
@@ -95,8 +95,8 @@ Before running the application, make sure you have the following installed on yo
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/YTFL/Project-Canele.git
-cd Project-Canele
+git clone https://github.com/YTFL/Canale.git
+cd Canale
 ```
 
 ### 2. Install Dependencies
@@ -141,7 +141,7 @@ flutter run -d windows
 ### Directory Structure
 
 ```
-Project-Canele/
+Canale/
 ├── assets/
 │   └── icons/                 # App launcher icons & graphical assets
 ├── lib/
@@ -314,7 +314,7 @@ UI Screens & Widgets (Dashboard, Collection, Rule Studio, Series Detail)
 
 ## Testing
 
-Project Canelé includes comprehensive automated test coverage for core business logic, parsing engines, arithmetic, and widget interactions:
+Canelé includes comprehensive automated test coverage for core business logic, parsing engines, arithmetic, and widget interactions:
 
 ```bash
 # Run the complete test suite
@@ -457,5 +457,5 @@ Output directory: `build/web/`.
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0). See [LICENSE](LICENSE) for details.
 

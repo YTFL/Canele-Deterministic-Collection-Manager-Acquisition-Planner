@@ -234,7 +234,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                   onPressed: () async {
                     final numVal = double.tryParse(volNumController.text.trim());
                     if (numVal == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(context)
+                        ..clearSnackBars()
+                        ..showSnackBar(
                         const SnackBar(content: Text('Please enter a valid volume number')),
                       );
                       return;
@@ -334,6 +336,29 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
               child: const Text('Create Volumes'),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  void _showBulkMarkSheet(BuildContext context, Series series, List<Volume> allVolumes) {
+    if (allVolumes.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          const SnackBar(content: Text('No volumes to mark.')),
+        );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return _BulkMarkVolumesSheet(
+          series: series,
+          allVolumes: allVolumes,
         );
       },
     );
@@ -539,7 +564,41 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
           ),
           PopupMenuButton<String>(
             onSelected: (val) async {
-              if (val == 'delete') {
+              if (val == 'complete') {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Mark Series as Completed?'),
+                    content: Text(
+                      'Are you sure you want to mark "${series.title}" as completed?\n\n'
+                      'This will mark all ${allVolumes.length} volume(s) as purchased and move the series to Completed collection.',
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.caramelizedAmber),
+                        child: const Text('Mark Completed'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  await ref.read(seriesNotifierProvider.notifier).markSeriesAsCompleted(series.id);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context)
+                      ..clearSnackBars()
+                      ..showSnackBar(
+                        SnackBar(
+                          content: Text('Marked "${series.title}" as Completed and all volumes as purchased!'),
+                          backgroundColor: AppColors.statusSuccess,
+                        ),
+                      );
+                  }
+                }
+              } else if (val == 'bulk_mark') {
+                _showBulkMarkSheet(context, series, allVolumes);
+              } else if (val == 'delete') {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
@@ -562,6 +621,27 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
               }
             },
             itemBuilder: (ctx) => [
+              if (series.status != 'completed')
+                const PopupMenuItem(
+                  value: 'complete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle_outline_rounded, color: AppColors.caramelizedAmber),
+                      SizedBox(width: 8),
+                      Text('Mark as Completed'),
+                    ],
+                  ),
+                ),
+              const PopupMenuItem(
+                value: 'bulk_mark',
+                child: Row(
+                  children: [
+                    Icon(Icons.checklist_rounded, color: AppColors.caramelizedAmber),
+                    SizedBox(width: 8),
+                    Text('Bulk Mark Volumes'),
+                  ],
+                ),
+              ),
               const PopupMenuItem(
                 value: 'delete',
                 child: Row(
@@ -667,7 +747,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Action Buttons (Add Volume & Batch Add)
+            // Action Buttons (Add Volume, Batch Add, Bulk Mark)
             Row(
               children: [
                 Expanded(
@@ -677,12 +757,20 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     label: const Text('Add Volume'),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () => _showBatchAddDialog(context),
                     icon: const Icon(Icons.playlist_add_rounded, size: 18),
                     label: const Text('Batch Add'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _showBulkMarkSheet(context, series, allVolumes),
+                    icon: const Icon(Icons.checklist_rounded, size: 18),
+                    label: const Text('Bulk Mark'),
                   ),
                 ),
               ],
@@ -755,6 +843,380 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
 
             const SizedBox(height: 40),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BulkMarkVolumesSheet extends ConsumerStatefulWidget {
+  final Series series;
+  final List<Volume> allVolumes;
+
+  const _BulkMarkVolumesSheet({
+    required this.series,
+    required this.allVolumes,
+  });
+
+  @override
+  ConsumerState<_BulkMarkVolumesSheet> createState() => _BulkMarkVolumesSheetState();
+}
+
+class _BulkMarkVolumesSheetState extends ConsumerState<_BulkMarkVolumesSheet> {
+  String _target = 'unowned'; // 'unowned', 'all', 'range', 'custom'
+  String _action = 'purchased'; // 'purchased', 'gift', 'unowned'
+  late TextEditingController _startController;
+  late TextEditingController _endController;
+  late Set<String> _selectedVolumeIds;
+
+  @override
+  void initState() {
+    super.initState();
+    final sorted = List<Volume>.from(widget.allVolumes)
+      ..sort((a, b) => a.volumeNumber.compareTo(b.volumeNumber));
+    final firstNum = sorted.isNotEmpty ? sorted.first.volumeNumber.toInt() : 1;
+    final lastNum = sorted.isNotEmpty ? sorted.last.volumeNumber.toInt() : 1;
+
+    _startController = TextEditingController(text: '$firstNum');
+    _endController = TextEditingController(text: '$lastNum');
+    _selectedVolumeIds = widget.allVolumes.where((v) => !v.isOwned).map((v) => v.id).toSet();
+  }
+
+  @override
+  void dispose() {
+    _startController.dispose();
+    _endController.dispose();
+    super.dispose();
+  }
+
+  List<Volume> _getTargetVolumes() {
+    switch (_target) {
+      case 'unowned':
+        return widget.allVolumes.where((v) => !v.isOwned).toList();
+      case 'all':
+        return widget.allVolumes;
+      case 'range':
+        final start = double.tryParse(_startController.text.trim()) ?? 1.0;
+        final end = double.tryParse(_endController.text.trim()) ?? 999.0;
+        return widget.allVolumes
+            .where((v) => v.volumeNumber >= start && v.volumeNumber <= end)
+            .toList();
+      case 'custom':
+        return widget.allVolumes.where((v) => _selectedVolumeIds.contains(v.id)).toList();
+      default:
+        return [];
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final targetVolumes = _getTargetVolumes();
+    final unownedCount = widget.allVolumes.where((v) => !v.isOwned).length;
+
+    return Material(
+      color: isDark ? AppColors.darkPastryCard : Colors.white,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Bulk Mark Volumes',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? AppColors.darkTextPrimary : AppColors.deepCaramel,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${widget.series.title} · ${widget.allVolumes.length} volume(s)',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Target Scope Selector
+              Text('1. Target Volumes', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: _target,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.filter_list_rounded, size: 20),
+                ),
+                items: [
+                  DropdownMenuItem(
+                    value: 'unowned',
+                    child: Text('Unowned Volumes Only ($unownedCount)'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'all',
+                    child: Text('All Volumes (${widget.allVolumes.length})'),
+                  ),
+                  const DropdownMenuItem(
+                    value: 'range',
+                    child: Text('Volume Number Range'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'custom',
+                    child: Text('Choose Specific Volumes (${_selectedVolumeIds.length})'),
+                  ),
+                ],
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() => _target = val);
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+
+              // Range inputs if range is selected
+              if (_target == 'range') ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _startController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          labelText: 'From Vol.',
+                          prefixIcon: Icon(Icons.first_page_rounded, size: 20),
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _endController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          labelText: 'To Vol.',
+                          prefixIcon: Icon(Icons.last_page_rounded, size: 20),
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
+
+              // Specific volume checklist if custom is selected
+              if (_target == 'custom') ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${_selectedVolumeIds.length} of ${widget.allVolumes.length} selected',
+                      style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    Row(
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _selectedVolumeIds = widget.allVolumes.map((v) => v.id).toSet();
+                            });
+                          },
+                          child: const Text('Select All', style: TextStyle(fontSize: 12)),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _selectedVolumeIds.clear();
+                            });
+                          },
+                          child: const Text('Clear', style: TextStyle(fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 180),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkPastryCardElevated : AppColors.pastryCrustLight,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark ? AppColors.darkPastryBorder : AppColors.pastryCrustBorder,
+                    ),
+                  ),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: widget.allVolumes.length,
+                    itemBuilder: (ctx, index) {
+                      final vol = widget.allVolumes[index];
+                      final isSelected = _selectedVolumeIds.contains(vol.id);
+                      return CheckboxListTile(
+                        dense: true,
+                        value: isSelected,
+                        title: Text(
+                          'Vol. ${DateFormatter.formatVolumeNumber(vol.volumeNumber)}${vol.isOwned ? (vol.isGift ? " (Gift)" : " (Purchased)") : " (Unowned)"}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                        ),
+                        activeColor: AppColors.caramelizedAmber,
+                        onChanged: (val) {
+                          setState(() {
+                            if (val == true) {
+                              _selectedVolumeIds.add(vol.id);
+                            } else {
+                              _selectedVolumeIds.remove(vol.id);
+                            }
+                          });
+                        },
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+
+              // Action Mode Selector
+              Text('2. Mark Status As', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<String>(
+                  style: SegmentedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    selectedBackgroundColor: AppColors.caramelizedAmber,
+                    selectedForegroundColor: Colors.white,
+                  ),
+                  segments: const [
+                    ButtonSegment(
+                      value: 'purchased',
+                      label: Text('Purchased'),
+                      icon: Icon(Icons.shopping_bag_outlined, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: 'gift',
+                      label: Text('Gift'),
+                      icon: Icon(Icons.card_giftcard_rounded, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: 'unowned',
+                      label: Text('Unmark'),
+                      icon: Icon(Icons.remove_circle_outline_rounded, size: 16),
+                    ),
+                  ],
+                  selected: {_action},
+                  onSelectionChanged: (sel) => setState(() => _action = sel.first),
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // Summary Info
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.caramelizedAmber.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.caramelizedAmber.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline_rounded, size: 18, color: AppColors.caramelizedAmber),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _action == 'unowned'
+                            ? 'Will unmark ${targetVolumes.length} volume(s) and remove transactions.'
+                            : 'Will mark ${targetVolumes.length} volume(s) as ${_action.toUpperCase()}.',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.caramelizedAmber,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Action Buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.check_rounded, size: 18),
+                    label: Text('Apply (${targetVolumes.length})'),
+                    onPressed: targetVolumes.isEmpty
+                        ? null
+                        : () async {
+                            final targetIds = targetVolumes.map((v) => v.id).toList();
+                            final isOwned = _action != 'unowned';
+                            final isGift = _action == 'gift';
+
+                            await ref.read(volumesNotifierProvider.notifier).bulkUpdateOwnership(
+                                  volumeIds: targetIds,
+                                  isOwned: isOwned,
+                                  isGift: isGift,
+                                );
+
+                            if (context.mounted) {
+                              Navigator.of(context).pop();
+                              ScaffoldMessenger.of(context)
+                                ..clearSnackBars()
+                                ..showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Updated ${targetIds.length} volume(s) for "${widget.series.title}"!',
+                                    ),
+                                    backgroundColor: AppColors.statusSuccess,
+                                  ),
+                                );
+                              await SeriesStatusPromptHelper.checkAndPrompt(
+                                context,
+                                seriesId: widget.series.id,
+                                ref: ref,
+                              );
+                            }
+                          },
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

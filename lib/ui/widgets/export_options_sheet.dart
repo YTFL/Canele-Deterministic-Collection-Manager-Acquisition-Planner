@@ -77,7 +77,7 @@ class _ExportOptionsSheetState extends State<ExportOptionsSheet> {
             bytes: bytes,
             fileName: fileName,
             subject: 'Canelé Full Database Backup',
-            text: 'Project Canelé offline state backup ($fileName)',
+            text: 'Canelé offline state backup ($fileName)',
           );
           break;
 
@@ -105,7 +105,9 @@ class _ExportOptionsSheetState extends State<ExportOptionsSheet> {
 
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
           const SnackBar(
             content: Text('Export generated successfully!'),
             backgroundColor: AppColors.statusSuccess,
@@ -114,7 +116,9 @@ class _ExportOptionsSheetState extends State<ExportOptionsSheet> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
           SnackBar(
             content: Text('Export failed: $e'),
             backgroundColor: AppColors.statusDanger,
@@ -130,7 +134,9 @@ class _ExportOptionsSheetState extends State<ExportOptionsSheet> {
     final jsonString = UniversalExporter.exportFullAppStateToJson(indent: true);
     Clipboard.setData(ClipboardData(text: jsonString));
     Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
       const SnackBar(content: Text('Database JSON copied to clipboard!')),
     );
   }

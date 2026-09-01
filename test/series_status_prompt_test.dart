@@ -51,6 +51,11 @@ class TestSeriesNotifier extends StateNotifier<List<Series>> implements SeriesNo
   Future<void> deleteSeries(String id) async {
     state = state.where((s) => s.id != id).toList();
   }
+
+  @override
+  Future<void> markSeriesAsCompleted(String seriesId) async {
+    state = state.map((s) => s.id == seriesId ? s.copyWith(collectionStatus: 'completed', releaseStatus: 'completed') : s).toList();
+  }
 }
 
 class TestVolumesNotifier extends StateNotifier<List<Volume>> implements VolumesNotifier {
@@ -86,6 +91,21 @@ class TestVolumesNotifier extends StateNotifier<List<Volume>> implements Volumes
       isGift: asGift ?? volume.isGift,
     );
     await saveVolume(updated);
+  }
+
+  @override
+  Future<void> bulkUpdateOwnership({
+    required List<String> volumeIds,
+    required bool isOwned,
+    bool isGift = false,
+  }) async {
+    final targetSet = volumeIds.toSet();
+    state = state.map((v) {
+      if (targetSet.contains(v.id)) {
+        return v.copyWith(isOwned: isOwned, isGift: isGift);
+      }
+      return v;
+    }).toList();
   }
 }
 

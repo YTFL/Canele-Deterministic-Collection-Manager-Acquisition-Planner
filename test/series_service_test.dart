@@ -95,5 +95,32 @@ void main() {
         expect(v.availability, 'available');
       }
     });
+
+    test('Automatically marks 100% of volumes as purchased when series collectionStatus is completed', () async {
+      final series = await seriesService.createSeriesWithVolumes(
+        title: 'Fullmetal Alchemist',
+        type: 'manga',
+        collectionStatus: 'completed',
+        totalReleasedVolumes: 27,
+        ownedCount: 0,
+        markOwned: false,
+      );
+
+      expect(series.collectionStatus, 'completed');
+      expect(series.releaseStatus, 'completed');
+
+      final volumes = volumeRepo.getBySeriesId(series.id);
+      expect(volumes.length, 27);
+      for (final v in volumes) {
+        expect(v.isOwned, isTrue, reason: 'Vol ${v.volumeNumber} must be owned');
+        expect(v.isGift, isFalse, reason: 'Vol ${v.volumeNumber} should default to purchased');
+      }
+
+      final txs = txRepo.getAll();
+      expect(txs.length, 27);
+      for (final t in txs) {
+        expect(t.quotaBucket, 'regular');
+      }
+    });
   });
 }

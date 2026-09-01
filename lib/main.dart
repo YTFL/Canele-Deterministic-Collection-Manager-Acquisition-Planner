@@ -35,7 +35,7 @@ class CaneleApp extends ConsumerWidget {
     ref.watch(backupNotifierProvider); // Keep auto-backup state notifier active across entire app
 
     return MaterialApp(
-      title: 'Project Canelé',
+      title: 'Canelé',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,

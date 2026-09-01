@@ -109,7 +109,7 @@ class QuotaStatusCard extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Ahead of schedule (+${summary.creditsCount} Books / +${summary.monthsAhead} mo credit)',
+                          'Ahead of schedule',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                             color: isDark ? AppColors.caramelizedAmberLight : AppColors.caramelizedAmber,
@@ -197,7 +197,9 @@ class QuotaStatusCard extends ConsumerWidget {
                     await ref.read(ruleConfigNotifierProvider.notifier).updateConfig(updatedConfig);
 
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(context)
+                        ..clearSnackBars()
+                        ..showSnackBar(
                         SnackBar(
                           content: Text('Added +1 Bonus Quota for ${DateFormatter.formatMonthYear(now)}!'),
                           backgroundColor: AppColors.statusWarning,
@@ -236,7 +238,9 @@ class QuotaStatusCard extends ConsumerWidget {
                     await ref.read(ruleConfigNotifierProvider.notifier).updateConfig(updatedConfig);
 
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(context)
+                        ..clearSnackBars()
+                        ..showSnackBar(
                         SnackBar(
                           content: Text(
                             isCurrentMonthSkipped

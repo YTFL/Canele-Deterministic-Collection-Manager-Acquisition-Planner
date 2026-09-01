@@ -121,7 +121,9 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
 
                     if (ctx.mounted) Navigator.pop(ctx);
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(context)
+                        ..clearSnackBars()
+                        ..showSnackBar(
                         SnackBar(
                           content: Text('Added +$bonusCount bonus credit for ${DateFormatter.formatMonthYear(selectedMonth)}!'),
                           backgroundColor: AppColors.statusSuccess,
@@ -184,7 +186,9 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
 
                     if (ctx.mounted) Navigator.pop(ctx);
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(context)
+                        ..clearSnackBars()
+                        ..showSnackBar(
                         SnackBar(
                           content: Text('Marked ${DateFormatter.formatMonthYear(selectedMonth)} as a No-Book Month!'),
                           backgroundColor: AppColors.caramelizedAmber,
@@ -244,7 +248,9 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
     await ref.read(ruleConfigNotifierProvider.notifier).updateConfig(updatedConfig);
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
         SnackBar(
           content: Text('Updated recurring bonus schedule for ${_monthNames[monthNum - 1]}!'),
           backgroundColor: AppColors.caramelizedAmber,
@@ -295,7 +301,9 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
     await ref.read(ruleConfigNotifierProvider.notifier).updateConfig(updatedConfig);
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
         SnackBar(
           content: Text('Updated recurring no-book schedule for ${_monthNames[monthNum - 1]}!'),
           backgroundColor: AppColors.caramelizedAmber,

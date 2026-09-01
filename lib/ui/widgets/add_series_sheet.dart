@@ -433,7 +433,21 @@ class _AddSeriesSheetState extends ConsumerState<AddSeriesSheet> {
                             DropdownMenuItem(value: 'completed', child: Text('Completed')),
                             DropdownMenuItem(value: 'dropped', child: Text('Dropped')),
                           ],
-                          onChanged: (val) => setState(() => _collectionStatus = val!),
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() {
+                                _collectionStatus = val;
+                                if (val == 'completed') {
+                                  _releaseStatus = 'completed';
+                                  final total = int.tryParse(_totalVolumesController.text.trim()) ?? 1;
+                                  _ownedCount = total;
+                                  _ownedCountController.text = '$total';
+                                  _markOwned = true;
+                                  _isGift = false;
+                                }
+                              });
+                            }
+                          },
                         ),
                       ],
                     ),
@@ -475,26 +489,33 @@ class _AddSeriesSheetState extends ConsumerState<AddSeriesSheet> {
                     onPressed: () async {
                       if (!_formKey.currentState!.validate()) return;
 
+                      final isCompleted = _collectionStatus == 'completed';
                       final totalVol = isMulti
                           ? (int.tryParse(_totalVolumesController.text.trim()) ?? 1)
                           : 1;
 
-                      final owned = isMulti ? _ownedCount : (_markOwned ? 1 : 0);
+                      final owned = isCompleted
+                          ? totalVol
+                          : (isMulti ? _ownedCount : (_markOwned ? 1 : 0));
+                      final markOwned = isCompleted ? true : _markOwned;
+                      final isGift = isCompleted ? false : _isGift;
 
                       final series = await ref.read(seriesNotifierProvider.notifier).createSeriesWithVolumes(
                         title: _titleController.text.trim(),
                         type: TypeHelper.normalizeKey(_selectedType ?? 'book'),
                         collectionStatus: _collectionStatus,
-                        releaseStatus: _releaseStatus,
+                        releaseStatus: isCompleted ? 'completed' : _releaseStatus,
                         totalReleasedVolumes: totalVol,
                         ownedCount: owned,
-                        markOwned: _markOwned,
-                        isGift: _isGift,
+                        markOwned: markOwned,
+                        isGift: isGift,
                       );
 
                       if (context.mounted) {
                         Navigator.of(context).pop(series.id);
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        ScaffoldMessenger.of(context)
+                          ..clearSnackBars()
+                          ..showSnackBar(
                           SnackBar(
                             content: Text(
                               'Created "${_titleController.text.trim()}" with $totalVol volume(s) generated!',

@@ -69,6 +69,56 @@ class SeriesNotifier extends StateNotifier<List<Series>> {
     _ref.read(transactionsNotifierProvider.notifier).load();
     load();
   }
+
+  Future<void> markSeriesAsCompleted(String seriesId) async {
+    final seriesList = state;
+    final series = seriesList.cast<Series?>().firstWhere(
+          (s) => s?.id == seriesId,
+          orElse: () => null,
+        );
+    if (series == null) return;
+
+    final updatedSeries = series.copyWith(
+      collectionStatus: 'completed',
+      releaseStatus: 'completed',
+    );
+    await _ref.read(seriesRepositoryProvider).save(updatedSeries);
+
+    final allVolumes = _ref.read(volumeRepositoryProvider).getBySeriesId(seriesId);
+    final volumesToSave = <Volume>[];
+    final txsToSave = <PurchaseTransaction>[];
+    final now = DateTime.now();
+    final quotaSummary = _ref.read(quotaProvider);
+
+    for (int i = 0; i < allVolumes.length; i++) {
+      final v = allVolumes[i];
+      if (!v.isOwned) {
+        volumesToSave.add(v.copyWith(isOwned: true, isGift: false));
+        final existingTx = _ref.read(transactionRepositoryProvider).getByVolumeId(v.id);
+        if (existingTx == null) {
+          txsToSave.add(PurchaseTransaction(
+            id: '${DateTime.now().millisecondsSinceEpoch}_${i}_${v.volumeNumber}',
+            volumeId: v.id,
+            purchaseDate: now,
+            quotaBucket: quotaSummary.suggestedAutoBucket,
+            price: 0.0,
+            notes: 'Marked as completed',
+          ));
+        }
+      }
+    }
+
+    if (volumesToSave.isNotEmpty) {
+      await _ref.read(volumeRepositoryProvider).saveBatch(volumesToSave);
+    }
+    if (txsToSave.isNotEmpty) {
+      await _ref.read(transactionRepositoryProvider).saveBatch(txsToSave);
+    }
+
+    _ref.read(volumesNotifierProvider.notifier).load();
+    _ref.read(transactionsNotifierProvider.notifier).load();
+    load();
+  }
 }
 
 final seriesNotifierProvider = StateNotifierProvider<SeriesNotifier, List<Series>>((ref) {
@@ -162,6 +212,73 @@ class VolumesNotifier extends StateNotifier<List<Volume>> {
       await _ref.read(transactionRepositoryProvider).deleteByVolumeId(volume.id);
       _ref.read(transactionsNotifierProvider.notifier).load();
     }
+  }
+
+  Future<void> bulkUpdateOwnership({
+    required List<String> volumeIds,
+    required bool isOwned,
+    bool isGift = false,
+  }) async {
+    if (volumeIds.isEmpty) return;
+
+    final allVolumes = _ref.read(volumeRepositoryProvider).getAll();
+    final targetIdSet = volumeIds.toSet();
+    final targetVolumes = allVolumes.where((v) => targetIdSet.contains(v.id)).toList();
+    if (targetVolumes.isEmpty) return;
+
+    final updatedVolumes = <Volume>[];
+    final txsToSave = <PurchaseTransaction>[];
+    final now = DateTime.now();
+    final quotaSummary = _ref.read(quotaProvider);
+
+    if (isOwned) {
+      for (int i = 0; i < targetVolumes.length; i++) {
+        final v = targetVolumes[i];
+        updatedVolumes.add(v.copyWith(
+          isOwned: true,
+          isGift: isGift,
+        ));
+
+        final existingTx = _ref.read(transactionRepositoryProvider).getByVolumeId(v.id);
+        if (existingTx == null) {
+          final bucket = isGift ? 'gift' : quotaSummary.suggestedAutoBucket;
+          txsToSave.add(PurchaseTransaction(
+            id: '${DateTime.now().millisecondsSinceEpoch}_${i}_${v.volumeNumber}',
+            volumeId: v.id,
+            purchaseDate: now,
+            quotaBucket: bucket,
+            price: 0.0,
+            notes: isGift ? 'Bulk marked as gift' : 'Bulk marked as purchased',
+          ));
+        } else if (existingTx.quotaBucket == 'gift' && !isGift) {
+          txsToSave.add(existingTx.copyWith(
+            quotaBucket: quotaSummary.suggestedAutoBucket,
+          ));
+        } else if (existingTx.quotaBucket != 'gift' && isGift) {
+          txsToSave.add(existingTx.copyWith(
+            quotaBucket: 'gift',
+          ));
+        }
+      }
+
+      await saveBatch(updatedVolumes);
+      if (txsToSave.isNotEmpty) {
+        await _ref.read(transactionRepositoryProvider).saveBatch(txsToSave);
+      }
+    } else {
+      for (final v in targetVolumes) {
+        updatedVolumes.add(v.copyWith(
+          isOwned: false,
+          isGift: false,
+        ));
+      }
+
+      await saveBatch(updatedVolumes);
+      await _ref.read(transactionRepositoryProvider).deleteByVolumeIds(volumeIds);
+    }
+
+    _ref.read(transactionsNotifierProvider.notifier).load();
+    load();
   }
 }
 

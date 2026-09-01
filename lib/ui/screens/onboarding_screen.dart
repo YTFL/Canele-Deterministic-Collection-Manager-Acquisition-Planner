@@ -47,6 +47,45 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
   ];
 
+  // Step 4 State: Rule Setup Mode ('default' vs 'custom')
+  String _ruleSetupOption = 'default';
+
+  List<RuleModel> _getDefaultRules() {
+    return [
+      RuleModel(
+        id: UuidGenerator.generate(),
+        name: 'Prioritize Restocked Volumes',
+        scopeType: RuleScopeType.allSeries,
+        progressTrigger: ProgressTriggerType.none,
+        restockPriorityEnabled: true,
+        sortBy: SortCriteria.lowestVolumeNumber,
+        isEnabled: true,
+        priorityOrder: 0,
+      ),
+      RuleModel(
+        id: UuidGenerator.generate(),
+        name: 'Finish Near-Complete Series',
+        scopeType: RuleScopeType.allSeries,
+        progressTrigger: ProgressTriggerType.leastRemainingVolumes,
+        volumeThresholdValue: 3,
+        restockPriorityEnabled: false,
+        sortBy: SortCriteria.closestToCompletion,
+        isEnabled: true,
+        priorityOrder: 1,
+      ),
+      RuleModel(
+        id: UuidGenerator.generate(),
+        name: 'Sequential Next Volume',
+        scopeType: RuleScopeType.allSeries,
+        progressTrigger: ProgressTriggerType.none,
+        restockPriorityEnabled: false,
+        sortBy: SortCriteria.lowestVolumeNumber,
+        isEnabled: true,
+        priorityOrder: 2,
+      ),
+    ];
+  }
+
   @override
   void initState() {
     super.initState();
@@ -75,6 +114,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     );
 
     await ref.read(ruleConfigNotifierProvider.notifier).updateConfig(config);
+
+    if (_ruleSetupOption == 'default') {
+      final currentRules = ref.read(rulesNotifierProvider);
+      if (currentRules.isEmpty) {
+        final defaults = _getDefaultRules();
+        for (final r in defaults) {
+          await ref.read(rulesNotifierProvider.notifier).saveRule(r);
+        }
+      }
+    }
 
     if (mounted) {
       Navigator.of(context).pushReplacement(
@@ -256,7 +305,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         ),
         const SizedBox(height: 6),
         Text(
-          'Project Canelé computes transparent book quotas strictly from this start month onwards.',
+          'Canelé computes transparent book quotas strictly from this start month onwards.',
           style: theme.textTheme.bodyMedium,
         ),
         const SizedBox(height: 20),
@@ -975,113 +1024,324 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         ),
         const SizedBox(height: 6),
         Text(
-          'Project Canelé uses priority rules to automatically pick which books to recommend each month.',
+          'Canelé uses priority rules to automatically pick which books to recommend each month.',
           style: theme.textTheme.bodyMedium,
         ),
         const SizedBox(height: 20),
 
-        if (rules.isEmpty) ...[
-          CaneleCard(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                const Icon(
-                  Icons.tune_rounded,
-                  size: 48,
-                  color: AppColors.caramelizedAmber,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'No Rules Configured Yet',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Start with our recommended default rules, or create custom rules from scratch.',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall,
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    final starterRules = [
-                      RuleModel(
-                        id: UuidGenerator.generate(),
-                        name: 'Prioritize Restocked Volumes',
-                        scopeType: RuleScopeType.allSeries,
-                        progressTrigger: ProgressTriggerType.none,
-                        restockPriorityEnabled: true,
-                        sortBy: SortCriteria.lowestVolumeNumber,
-                        isEnabled: true,
-                        priorityOrder: 0,
-                      ),
-                      RuleModel(
-                        id: UuidGenerator.generate(),
-                        name: 'Series Closer to Completion',
-                        scopeType: RuleScopeType.allSeries,
-                        progressTrigger: ProgressTriggerType.leastRemainingVolumes,
-                        volumeThresholdValue: 3,
-                        restockPriorityEnabled: false,
-                        sortBy: SortCriteria.closestToCompletion,
-                        isEnabled: true,
-                        priorityOrder: 1,
-                      ),
-                      RuleModel(
-                        id: UuidGenerator.generate(),
-                        name: 'Sequential Next Volume',
-                        scopeType: RuleScopeType.allSeries,
-                        progressTrigger: ProgressTriggerType.none,
-                        restockPriorityEnabled: false,
-                        sortBy: SortCriteria.lowestVolumeNumber,
-                        isEnabled: true,
-                        priorityOrder: 2,
-                      ),
-                    ];
-                    for (final r in starterRules) {
-                      await ref.read(rulesNotifierProvider.notifier).saveRule(r);
-                    }
-                  },
-                  icon: const Icon(Icons.auto_fix_high_rounded, size: 18),
-                  label: const Text('Add Recommended Starter Rules'),
-                ),
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: () => EditRuleSheet.show(context),
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Create Custom Rule'),
-                ),
-              ],
-            ),
-          ),
-        ] else ...[
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        // Radio options group
+        RadioGroup<String>(
+          groupValue: _ruleSetupOption,
+          onChanged: (val) {
+            if (val != null) setState(() => _ruleSetupOption = val);
+          },
+          child: Column(
             children: [
-              Text(
-                'Active Rules (${rules.length})',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              // Option 1: Use Default Rules Card
+              InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => setState(() => _ruleSetupOption = 'default'),
+                child: CaneleCard(
+                  borderColor: _ruleSetupOption == 'default'
+                      ? AppColors.caramelizedAmber
+                      : (isDark ? AppColors.darkPastryBorder : AppColors.pastryCrustBorder),
+                  backgroundColor: _ruleSetupOption == 'default'
+                      ? AppColors.caramelizedAmber.withValues(alpha: isDark ? 0.12 : 0.06)
+                      : null,
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.caramelizedAmber.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.auto_awesome_rounded,
+                          color: AppColors.caramelizedAmber,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    'Use Default Rules',
+                                    style: theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.caramelizedAmber.withValues(alpha: 0.18),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    'RECOMMENDED',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.caramelizedAmber,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '3 balanced priority rules tailored for any collection.',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Radio<String>(
+                        value: 'default',
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              TextButton.icon(
-                onPressed: () => EditRuleSheet.show(context),
-                icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('Add Rule'),
+              const SizedBox(height: 12),
+
+              // Option 2: Create Custom Rules Card
+              InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => setState(() => _ruleSetupOption = 'custom'),
+                child: CaneleCard(
+                  borderColor: _ruleSetupOption == 'custom'
+                      ? AppColors.caramelizedAmber
+                      : (isDark ? AppColors.darkPastryBorder : AppColors.pastryCrustBorder),
+                  backgroundColor: _ruleSetupOption == 'custom'
+                      ? AppColors.caramelizedAmber.withValues(alpha: isDark ? 0.12 : 0.06)
+                      : null,
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.caramelizedAmber.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.tune_rounded,
+                          color: AppColors.caramelizedAmber,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Create Custom Rules',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Design rules from scratch for specific series, formats, or criteria.',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Radio<String>(
+                        value: 'custom',
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          ...rules.asMap().entries.map((entry) {
-            final idx = entry.key;
-            final rule = entry.value;
-            return RuleCard(
-              rule: rule,
-              displayIndex: idx,
-              onTap: () => EditRuleSheet.show(context, rule: rule),
-              onToggleEnabled: (val) {
-                ref.read(rulesNotifierProvider.notifier).toggleRule(rule.id, val);
-              },
-            );
-          }),
+        ),
+        const SizedBox(height: 20),
+
+        // Content for selected option
+        if (_ruleSetupOption == 'default') ...[
+          if (rules.isEmpty) ...[
+            CaneleCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Included Default Rules',
+                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.caramelizedAmber.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          '3 Standard Rules',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.caramelizedAmber,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _buildDefaultRuleItem(
+                    theme,
+                    isDark,
+                    number: 1,
+                    title: 'Prioritize Restocked Volumes',
+                    desc: 'Bumps volumes marked on your restock watchlist to the top of your monthly recommendations.',
+                    icon: Icons.notifications_active_outlined,
+                  ),
+                  const SizedBox(height: 10),
+                  _buildDefaultRuleItem(
+                    theme,
+                    isDark,
+                    number: 2,
+                    title: 'Finish Near-Complete Series',
+                    desc: 'Prioritizes series with 3 or fewer unowned volumes to help you complete them.',
+                    icon: Icons.flag_outlined,
+                  ),
+                  const SizedBox(height: 10),
+                  _buildDefaultRuleItem(
+                    theme,
+                    isDark,
+                    number: 3,
+                    title: 'Sequential Next Volume',
+                    desc: 'Recommends the next unowned volume in sequential order for your active series.',
+                    icon: Icons.format_list_numbered_rounded,
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final defaults = _getDefaultRules();
+                        for (final r in defaults) {
+                          await ref.read(rulesNotifierProvider.notifier).saveRule(r);
+                        }
+                      },
+                      icon: const Icon(Icons.playlist_add_check_rounded, size: 18),
+                      label: const Text('Apply & Customize Rules Now'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Active Rules (${rules.length})',
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                TextButton.icon(
+                  onPressed: () => EditRuleSheet.show(context),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Add Rule'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ...rules.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final rule = entry.value;
+              return RuleCard(
+                rule: rule,
+                displayIndex: idx,
+                onTap: () => EditRuleSheet.show(context, rule: rule),
+                onToggleEnabled: (val) {
+                  ref.read(rulesNotifierProvider.notifier).toggleRule(rule.id, val);
+                },
+              );
+            }),
+          ],
+        ] else ...[
+          // Custom Rules Mode
+          if (rules.isEmpty) ...[
+            CaneleCard(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.tune_rounded,
+                    size: 44,
+                    color: AppColors.caramelizedAmber,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No Custom Rules Yet',
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Create your first custom rule to control which books are recommended each month.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () => EditRuleSheet.show(context),
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('Create Custom Rule'),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Custom Rules (${rules.length})',
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                TextButton.icon(
+                  onPressed: () => EditRuleSheet.show(context),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Add Rule'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ...rules.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final rule = entry.value;
+              return RuleCard(
+                rule: rule,
+                displayIndex: idx,
+                onTap: () => EditRuleSheet.show(context, rule: rule),
+                onToggleEnabled: (val) {
+                  ref.read(rulesNotifierProvider.notifier).toggleRule(rule.id, val);
+                },
+              );
+            }),
+          ],
         ],
+
         const SizedBox(height: 16),
         CaneleCard(
           padding: const EdgeInsets.all(12),
@@ -1099,6 +1359,57 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildDefaultRuleItem(
+    ThemeData theme,
+    bool isDark, {
+    required int number,
+    required String title,
+    required String desc,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkPastryCardElevated : AppColors.pastryCrustLight,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isDark ? AppColors.darkPastryBorder : AppColors.pastryCrustBorder,
+          width: 0.8,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.caramelizedAmber.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 16, color: AppColors.caramelizedAmber),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$number. $title',
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  desc,
+                  style: theme.textTheme.bodySmall?.copyWith(fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

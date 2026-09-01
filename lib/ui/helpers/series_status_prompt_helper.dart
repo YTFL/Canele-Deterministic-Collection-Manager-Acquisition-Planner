@@ -45,7 +45,9 @@ class SeriesStatusPromptHelper {
             await container!.read(seriesNotifierProvider.notifier).saveSeries(series);
           }
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            ScaffoldMessenger.of(context)
+              ..clearSnackBars()
+              ..showSnackBar(
               SnackBar(
                 content: Text('Moved "${series.title}" to Active collection!'),
                 backgroundColor: AppColors.caramelizedAmber,
@@ -69,7 +71,9 @@ class SeriesStatusPromptHelper {
             await container!.read(seriesNotifierProvider.notifier).saveSeries(series);
           }
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            ScaffoldMessenger.of(context)
+              ..clearSnackBars()
+              ..showSnackBar(
               SnackBar(
                 content: Text('Moved "${series.title}" to Completed!'),
                 backgroundColor: AppColors.caramelizedAmber,

@@ -140,7 +140,9 @@ class _ImportPreviewModalState extends ConsumerState<ImportPreviewModal> {
 
       if (mounted) {
         Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
           SnackBar(
             content: Text(
               'Imported $volumesCreated volumes across $seriesCreated new series successfully!',
@@ -151,7 +153,9 @@ class _ImportPreviewModalState extends ConsumerState<ImportPreviewModal> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
           SnackBar(
             content: Text('Import failed: $e'),
             backgroundColor: AppColors.statusDanger,

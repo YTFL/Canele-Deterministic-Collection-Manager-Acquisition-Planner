@@ -80,7 +80,9 @@ class _LogTransactionSheetState extends ConsumerState<LogTransactionSheet> {
 
   Future<void> _submit() async {
     if (_selectedVolume == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
         const SnackBar(content: Text('Please select a volume')),
       );
       return;
@@ -112,7 +114,9 @@ class _LogTransactionSheetState extends ConsumerState<LogTransactionSheet> {
 
     if (mounted) {
       Navigator.of(context).pop(targetSeriesId);
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
         SnackBar(
           content: Text(
             'Logged Vol. ${DateFormatter.formatVolumeNumber(_selectedVolume!.volumeNumber)} as ${bucket.toUpperCase()} acquisition!',

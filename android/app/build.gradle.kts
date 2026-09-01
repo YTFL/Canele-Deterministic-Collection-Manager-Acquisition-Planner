@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.ytfl.projectcanele"
+    namespace = "com.ytfl.canale"
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
@@ -16,7 +16,7 @@ android {
 
     defaultConfig {
         // Application ID
-        applicationId = "com.ytfl.projectcanele"
+        applicationId = "com.ytfl.canale"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

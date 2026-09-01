@@ -64,7 +64,9 @@ class _EditRuleSheetState extends ConsumerState<EditRuleSheet> {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       setState(() => _hasNameError = true);
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
         const SnackBar(
           content: Text('Rule name is mandatory for rule creation'),
           backgroundColor: AppColors.statusDanger,
@@ -93,7 +95,9 @@ class _EditRuleSheetState extends ConsumerState<EditRuleSheet> {
 
     if (mounted) {
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
         SnackBar(
           content: Text('Saved rule "$name"'),
           backgroundColor: AppColors.caramelizedAmber,
@@ -107,7 +111,9 @@ class _EditRuleSheetState extends ConsumerState<EditRuleSheet> {
     await ref.read(rulesNotifierProvider.notifier).deleteRule(widget.rule!.id);
     if (mounted) {
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
         const SnackBar(content: Text('Rule deleted')),
       );
     }

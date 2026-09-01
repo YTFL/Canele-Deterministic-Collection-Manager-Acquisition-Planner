@@ -30,13 +30,15 @@ class SeriesService {
     List<String> tags = const [],
     Map<String, dynamic> customMetadata = const {},
   }) async {
+    final isCompletedStatus = collectionStatus == 'completed';
+    final effectiveReleaseStatus = isCompletedStatus ? 'completed' : releaseStatus;
     final seriesId = UuidGenerator.generate();
     final series = Series(
       id: seriesId,
       title: title.trim(),
       type: type,
       collectionStatus: collectionStatus,
-      releaseStatus: releaseStatus,
+      releaseStatus: effectiveReleaseStatus,
       totalVolumesReleased: totalReleasedVolumes,
       tags: tags,
       customMetadata: customMetadata,
@@ -45,10 +47,13 @@ class SeriesService {
     await seriesRepository.save(series);
 
     final count = totalReleasedVolumes > 0 ? totalReleasedVolumes : 1;
+    final effectiveOwnedCount = isCompletedStatus ? count : ownedCount;
+    final effectiveMarkOwned = isCompletedStatus ? true : markOwned;
+    final effectiveIsGift = isCompletedStatus && !isGift ? false : isGift;
     final volumes = <Volume>[];
 
     for (int i = 1; i <= count; i++) {
-      final isThisOwned = markOwned && (i <= ownedCount);
+      final isThisOwned = effectiveMarkOwned && (i <= effectiveOwnedCount);
       volumes.add(
         Volume(
           id: UuidGenerator.generate(),
@@ -57,7 +62,7 @@ class SeriesService {
           isOwned: isThisOwned,
           availability: 'available',
           isRestockedWatchlist: false,
-          isGift: isThisOwned && isGift,
+          isGift: isThisOwned && effectiveIsGift,
         ),
       );
     }
@@ -69,16 +74,21 @@ class SeriesService {
     // Create purchase transactions for all owned volumes
     final ownedVolumes = volumes.where((v) => v.isOwned).toList();
     final now = DateTime.now();
+    final txs = <PurchaseTransaction>[];
     for (final v in ownedVolumes) {
-      final tx = PurchaseTransaction(
-        id: UuidGenerator.generate(),
-        volumeId: v.id,
-        purchaseDate: now,
-        quotaBucket: isGift ? 'gift' : 'regular',
-        price: 0.0,
-        notes: isGift ? 'Received as gift' : 'Added during series creation',
+      txs.add(
+        PurchaseTransaction(
+          id: UuidGenerator.generate(),
+          volumeId: v.id,
+          purchaseDate: now,
+          quotaBucket: effectiveIsGift ? 'gift' : 'regular',
+          price: 0.0,
+          notes: effectiveIsGift ? 'Received as gift' : 'Added during series creation',
+        ),
       );
-      await transactionRepository.save(tx);
+    }
+    if (txs.isNotEmpty) {
+      await transactionRepository.saveBatch(txs);
     }
 
     return series;

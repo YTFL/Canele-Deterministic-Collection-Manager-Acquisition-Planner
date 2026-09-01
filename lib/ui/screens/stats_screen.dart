@@ -137,7 +137,7 @@ class StatsScreen extends ConsumerWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Ahead of Schedule (+${quotaSummary.creditsCount} Books / +${quotaSummary.monthsAhead} mo credit)',
+                                  'Ahead of Schedule',
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     fontWeight: FontWeight.w700,
                                     color: isDark ? AppColors.caramelizedAmberLight : AppColors.caramelizedAmber,
@@ -605,7 +605,7 @@ class _BalanceBox extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            '$bought / $expected',
+            '${bought > expected ? expected : bought} / $expected',
             style: theme.textTheme.bodySmall?.copyWith(
               fontSize: 9,
               color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,

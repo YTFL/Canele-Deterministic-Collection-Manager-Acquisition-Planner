@@ -60,7 +60,9 @@ class DashboardScreen extends ConsumerWidget {
                     await ref.read(volumesNotifierProvider.notifier).saveVolume(updated);
                     if (ctx.mounted) Navigator.pop(ctx);
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(context)
+                        ..clearSnackBars()
+                        ..showSnackBar(
                         SnackBar(
                           content: Text('${series.title} Vol. ${DateFormatter.formatVolumeNumber(volume.volumeNumber)} marked as Available!'),
                           backgroundColor: AppColors.caramelizedAmber,

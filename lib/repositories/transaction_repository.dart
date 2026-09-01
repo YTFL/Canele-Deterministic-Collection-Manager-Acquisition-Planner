@@ -43,4 +43,23 @@ class TransactionRepository {
       await HiveBoxes.transactionsBox.delete(id);
     }
   }
+
+  Future<void> saveBatch(List<PurchaseTransaction> transactions) async {
+    final entries = {for (final t in transactions) t.id: t.toMap()};
+    await HiveBoxes.transactionsBox.putAll(entries);
+  }
+
+  Future<void> deleteByVolumeIds(Iterable<String> volumeIds) async {
+    final targetIds = volumeIds.toSet();
+    final toDelete = <String>[];
+    for (final map in HiveBoxes.transactionsBox.values) {
+      final t = PurchaseTransaction.fromMap(map);
+      if (targetIds.contains(t.volumeId)) {
+        toDelete.add(t.id);
+      }
+    }
+    for (final id in toDelete) {
+      await HiveBoxes.transactionsBox.delete(id);
+    }
+  }
 }

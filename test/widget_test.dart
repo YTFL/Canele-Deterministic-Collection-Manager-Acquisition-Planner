@@ -60,6 +60,8 @@ class MockSeriesNotifier extends StateNotifier<List<Series>> implements SeriesNo
   }) async => state.first;
   @override
   Future<void> deleteSeries(String id) async {}
+  @override
+  Future<void> markSeriesAsCompleted(String seriesId) async {}
 }
 
 class MockVolumesNotifier extends StateNotifier<List<Volume>> implements VolumesNotifier {
@@ -74,6 +76,12 @@ class MockVolumesNotifier extends StateNotifier<List<Volume>> implements Volumes
   Future<void> deleteVolume(String id) async {}
   @override
   Future<void> toggleOwned(Volume volume, {bool? asGift}) async {}
+  @override
+  Future<void> bulkUpdateOwnership({
+    required List<String> volumeIds,
+    required bool isOwned,
+    bool isGift = false,
+  }) async {}
 }
 
 class MockTransactionsNotifier extends StateNotifier<List<PurchaseTransaction>> implements TransactionsNotifier {
@@ -334,16 +342,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Configure Recommendation Rules'), findsOneWidget);
-    expect(find.text('Add Recommended Starter Rules'), findsOneWidget);
+    expect(find.text('Use Default Rules'), findsOneWidget);
+    expect(find.text('Apply & Customize Rules Now'), findsOneWidget);
     expect(find.text('Finish & Start Tracking'), findsOneWidget);
 
-    // Tap Add Recommended Starter Rules
-    await tester.tap(find.text('Add Recommended Starter Rules'));
+    // Ensure button is visible before tapping
+    await tester.ensureVisible(find.text('Apply & Customize Rules Now'));
+    await tester.pumpAndSettle();
+
+    // Tap Apply & Customize Rules Now
+    await tester.tap(find.text('Apply & Customize Rules Now'));
     await tester.pumpAndSettle();
 
     // Verify 3 starter rules are added
     expect(find.text('Prioritize Restocked Volumes'), findsOneWidget);
-    expect(find.text('Series Closer to Completion'), findsOneWidget);
+    expect(find.text('Finish Near-Complete Series'), findsOneWidget);
     expect(find.text('Sequential Next Volume'), findsOneWidget);
   });
 
@@ -636,5 +649,190 @@ void main() {
 
     expect(find.text('Recurring No-Book Months'), findsOneWidget);
     expect(find.text('Recurring Bonus Months'), findsOneWidget);
+  });
+
+  testWidgets('QuotaStatusCard renders simplified "Ahead of schedule" text when ahead', (WidgetTester tester) async {
+    const summary = QuotaSummary(
+      regularExpected: 10,
+      regularBought: 10,
+      regularRemaining: 0,
+      bonusExpected: 2,
+      bonusBought: 4,
+      bonusRemaining: -2,
+      totalRemaining: -2,
+      giftsCount: 1,
+      totalSpent: 120.0,
+      isAheadOfSchedule: true,
+      creditsCount: 2,
+      monthsAhead: 2,
+      activeMonthKeys: ['2026-01', '2026-02'],
+    );
+
+    final config = RuleConfig(timelineStartDate: DateTime(2026, 1, 1));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ruleConfigNotifierProvider.overrideWith((ref) => MockRuleConfigNotifier(config)),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: QuotaStatusCard(summary: summary),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ahead of schedule'), findsOneWidget);
+    // Should NOT contain the old verbose bracketed title
+    expect(find.textContaining('Ahead of schedule (+'), findsNothing);
+  });
+
+  testWidgets('StatsScreen renders 13 / 13 for Bonus and Total Open when overbought with credit', (WidgetTester tester) async {
+    const summary = QuotaSummary(
+      regularExpected: 0,
+      regularBought: 0,
+      regularRemaining: 0,
+      bonusExpected: 13,
+      bonusBought: 16,
+      bonusRemaining: -3,
+      totalRemaining: -3,
+      giftsCount: 0,
+      totalSpent: 200.0,
+      isAheadOfSchedule: true,
+      creditsCount: 3,
+      monthsAhead: 3,
+      activeMonthKeys: [],
+    );
+
+    final config = RuleConfig(timelineStartDate: DateTime(2026, 1, 1));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          quotaProvider.overrideWithValue(summary),
+          ruleConfigNotifierProvider.overrideWith((ref) => MockRuleConfigNotifier(config)),
+          seriesNotifierProvider.overrideWith((ref) => MockSeriesNotifier([])),
+          volumesNotifierProvider.overrideWith((ref) => MockVolumesNotifier([])),
+          transactionsNotifierProvider.overrideWith((ref) => MockTransactionsNotifier([])),
+        ],
+        child: const MaterialApp(
+          home: StatsScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify "Ahead of Schedule" simplified banner
+    expect(find.text('Ahead of Schedule'), findsOneWidget);
+    expect(find.textContaining('Ahead of Schedule (+'), findsNothing);
+
+    // Verify "13 / 13" is shown instead of "16 / 13"
+    expect(find.text('13 / 13'), findsWidgets);
+    expect(find.text('16 / 13'), findsNothing);
+    // Total Open shows value -3 and Credit status
+    expect(find.text('-3'), findsOneWidget);
+    expect(find.text('Credit'), findsOneWidget);
+  });
+
+  testWidgets('SeriesDetailScreen renders Bulk Mark button and opens Bulk Mark sheet', (WidgetTester tester) async {
+    final series = Series(
+      id: 'series_1',
+      title: 'Overlord',
+      type: 'lightNovel',
+      collectionStatus: 'active',
+    );
+
+    final volumes = [
+      Volume(id: 'v1', seriesId: 'series_1', volumeNumber: 1.0, isOwned: true),
+      Volume(id: 'v2', seriesId: 'series_1', volumeNumber: 2.0, isOwned: false),
+      Volume(id: 'v3', seriesId: 'series_1', volumeNumber: 3.0, isOwned: false),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          seriesNotifierProvider.overrideWith((ref) => MockSeriesNotifier([series])),
+          volumesNotifierProvider.overrideWith((ref) => MockVolumesNotifier(volumes)),
+          transactionsNotifierProvider.overrideWith((ref) => MockTransactionsNotifier([])),
+        ],
+        child: MaterialApp(
+          home: SeriesDetailScreen(seriesId: series.id),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify Bulk Mark button exists in action row
+    expect(find.text('Bulk Mark'), findsOneWidget);
+
+    // Tap Bulk Mark
+    await tester.tap(find.text('Bulk Mark'));
+    await tester.pumpAndSettle();
+
+    // Verify modal sheet opened
+    expect(find.text('Bulk Mark Volumes'), findsOneWidget);
+    expect(find.text('1. Target Volumes'), findsOneWidget);
+    expect(find.text('2. Mark Status As'), findsOneWidget);
+    expect(find.text('Purchased'), findsOneWidget);
+    expect(find.text('Gift'), findsOneWidget);
+    expect(find.text('Unmark'), findsOneWidget);
+  });
+
+  testWidgets('Onboarding Step 4 provides Default Rules and Custom Rules choices', (WidgetTester tester) async {
+    final config = RuleConfig(timelineStartDate: DateTime.now());
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ruleConfigNotifierProvider.overrideWith((ref) => MockRuleConfigNotifier(config)),
+          rulesNotifierProvider.overrideWith((ref) => MockRulesNotifier([])),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: OnboardingScreen(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Step 1 -> Step 2
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    // Step 2 -> Step 4 (since timeline start is current month, Step 3 catch-up is skipped)
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    // Step 4 header & choice cards
+    expect(find.text('Configure Recommendation Rules'), findsOneWidget);
+    expect(find.text('Use Default Rules'), findsOneWidget);
+    expect(find.text('RECOMMENDED'), findsOneWidget);
+    expect(find.text('Create Custom Rules'), findsOneWidget);
+
+    // Default rules are previewed
+    expect(find.text('Included Default Rules'), findsOneWidget);
+    expect(find.text('1. Prioritize Restocked Volumes'), findsOneWidget);
+    expect(find.text('2. Finish Near-Complete Series'), findsOneWidget);
+    expect(find.text('3. Sequential Next Volume'), findsOneWidget);
+    expect(find.text('Apply & Customize Rules Now'), findsOneWidget);
+
+    // Switch to Custom Rules
+    await tester.tap(find.text('Create Custom Rules'));
+    await tester.pumpAndSettle();
+
+    // Verify Custom Rules empty state & button
+    expect(find.text('No Custom Rules Yet'), findsOneWidget);
+    expect(find.text('Create Custom Rule'), findsOneWidget);
+
+    // Switch back to Default Rules
+    await tester.tap(find.text('Use Default Rules'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Included Default Rules'), findsOneWidget);
   });
 }

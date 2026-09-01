@@ -412,7 +412,9 @@ class _SeriesListView extends ConsumerWidget {
                       );
                       await ref.read(volumesNotifierProvider.notifier).saveVolume(newVol);
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        ScaffoldMessenger.of(context)
+                          ..clearSnackBars()
+                          ..showSnackBar(
                           SnackBar(
                             content: Text('Added Vol. ${DateFormatter.formatVolumeNumber(nextVolNum)} to ${series.title}'),
                             backgroundColor: AppColors.caramelizedAmber,
@@ -430,6 +432,59 @@ class _SeriesListView extends ConsumerWidget {
                       ),
                     ),
                   ),
+                  if (series.status != 'completed')
+                    PopupMenuButton<String>(
+                      padding: EdgeInsets.zero,
+                      icon: const Icon(Icons.more_vert_rounded, size: 18, color: AppColors.caramelizedAmber),
+                      onSelected: (val) async {
+                        if (val == 'complete') {
+                          final volumes = ref.read(volumesNotifierProvider).where((v) => v.seriesId == series.id).toList();
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Mark Series as Completed?'),
+                              content: Text(
+                                'Are you sure you want to mark "${series.title}" as completed?\n\n'
+                                'This will mark all ${volumes.length} volume(s) as purchased and move the series to Completed collection.',
+                              ),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.caramelizedAmber),
+                                  child: const Text('Mark Completed'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirm == true) {
+                            await ref.read(seriesNotifierProvider.notifier).markSeriesAsCompleted(series.id);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context)
+                                ..clearSnackBars()
+                                ..showSnackBar(
+                                  SnackBar(
+                                    content: Text('Marked "${series.title}" as Completed and all volumes as purchased!'),
+                                    backgroundColor: AppColors.statusSuccess,
+                                  ),
+                                );
+                            }
+                          }
+                        }
+                      },
+                      itemBuilder: (ctx) => [
+                        const PopupMenuItem(
+                          value: 'complete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.check_circle_outline_rounded, size: 18, color: AppColors.caramelizedAmber),
+                              SizedBox(width: 8),
+                              Text('Mark as Completed'),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
               const SizedBox(height: 8),

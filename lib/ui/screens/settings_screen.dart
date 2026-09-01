@@ -140,7 +140,9 @@ class SettingsScreen extends ConsumerWidget {
                         ref.read(rulesNotifierProvider.notifier).load();
 
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          ScaffoldMessenger.of(context)
+                            ..clearSnackBars()
+                            ..showSnackBar(
                             const SnackBar(
                               content: Text('App database completely wiped!'),
                               backgroundColor: AppColors.statusDanger,

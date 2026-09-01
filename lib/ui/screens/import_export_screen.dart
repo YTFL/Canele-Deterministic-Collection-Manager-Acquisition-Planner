@@ -38,7 +38,9 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
     final success = await ref.read(backupNotifierProvider.notifier).performManualBackup();
     if (mounted) {
       setState(() => _isBackingUp = false);
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
         SnackBar(
           content: Text(
             success
@@ -75,7 +77,9 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
 
     if (file.bytes == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
           const SnackBar(content: Text('Could not read file data.')),
         );
       }
@@ -92,7 +96,9 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
         final items = UniversalImporter.parseCsvString(csvStr);
         if (items.isEmpty) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
               const SnackBar(content: Text('No book records found in CSV file.')),
             );
           }
@@ -111,7 +117,9 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
             SnackBar(content: Text('Error parsing CSV: $e')),
           );
         }
@@ -121,7 +129,9 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
         final items = UniversalImporter.parseExcelBytes(file.bytes!);
         if (items.isEmpty) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
               const SnackBar(content: Text('No book records found in Excel file.')),
             );
           }
@@ -140,7 +150,9 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
             SnackBar(content: Text('Error parsing Excel: $e')),
           );
         }
@@ -207,7 +219,9 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
         ref.read(rulesNotifierProvider.notifier).load();
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
             SnackBar(
               content: Text(
                 mode == RestoreMode.replaceAll
@@ -220,7 +234,9 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
             SnackBar(
               content: Text('Restore failed: ${result.errorMessage}'),
               backgroundColor: AppColors.statusDanger,
@@ -230,7 +246,9 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
           SnackBar(
             content: Text('Restore failed: $e'),
             backgroundColor: AppColors.statusDanger,

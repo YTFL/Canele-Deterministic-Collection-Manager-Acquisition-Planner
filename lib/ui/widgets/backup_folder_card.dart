@@ -26,7 +26,9 @@ class BackupFolderCard extends ConsumerWidget {
         await ref.read(backupNotifierProvider.notifier).setTargetDirectory(selectedPath);
 
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
             SnackBar(
               content: Text('Backup folder set to: $selectedPath'),
               backgroundColor: AppColors.statusSuccess,
@@ -43,7 +45,9 @@ class BackupFolderCard extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
           SnackBar(
             content: Text('Could not access selected directory: $e'),
             backgroundColor: AppColors.statusDanger,
@@ -161,7 +165,9 @@ class BackupFolderCard extends ConsumerWidget {
                   onPressed: () async {
                     await ref.read(backupNotifierProvider.notifier).clearTargetDirectory();
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
                         const SnackBar(content: Text('Reset to default internal documents directory.')),
                       );
                     }
