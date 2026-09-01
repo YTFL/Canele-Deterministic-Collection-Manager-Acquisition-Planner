@@ -83,7 +83,7 @@ Canelé is currently engineered natively for **Android (API 21+ / Android 5.0 an
 
 ### Option A: Install via APK Release (Recommended)
 
-1. Download the latest `Canelé-v1.0.0.apk` from the [GitHub Releases](https://github.com/YTFL/Canale/releases) page.
+1. Download the latest `Canelé-v1.0.0.apk` from the [GitHub Releases](https://github.com/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner/releases) page.
 2. Open the downloaded `.apk` file on your Android device.
 3. If prompted, grant permission to *"Install apps from unknown sources"*.
 4. Launch **Canelé** and follow the step-by-step Setup Wizard!
@@ -100,7 +100,7 @@ Canelé is currently engineered natively for **Android (API 21+ / Android 5.0 an
 
 #### 1. Clone the Repository
 ```bash
-git clone https://github.com/YTFL/Canale.git
+git clone https://github.com/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner.git
 cd Canale
 ```
 

@@ -26,7 +26,7 @@ class UpdateService {
 
   // GitHub raw URL for update.json
   static const String updateJsonUrl =
-      'https://raw.githubusercontent.com/YTFL/Canale/main/update.json';
+      'https://raw.githubusercontent.com/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner/main/update.json';
 
   // Reminder period: 24 hours
   static const Duration reminderPeriod = Duration(hours: 24);
@@ -106,7 +106,7 @@ class UpdateService {
   Future<String> fetchReleaseNotes(String version) async {
     try {
       final releaseUrl =
-          'https://api.github.com/repos/YTFL/Canale/releases/tags/v$version';
+          'https://api.github.com/repos/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner/releases/tags/v$version';
 
       final response = await http.get(Uri.parse(releaseUrl)).timeout(
         const Duration(seconds: 10),
@@ -218,7 +218,7 @@ class UpdateService {
   Future<DateTime?> fetchLatestReleaseDate() async {
     try {
       const latestReleaseUrl =
-          'https://api.github.com/repos/YTFL/Canale/releases/latest';
+          'https://api.github.com/repos/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner/releases/latest';
 
       final response = await http.get(Uri.parse(latestReleaseUrl)).timeout(
         const Duration(seconds: 10),
@@ -241,14 +241,14 @@ class UpdateService {
   }
 
   /// Download APK file from GitHub releases
-  /// URL pattern: https://github.com/YTFL/Canale/releases/download/v{version}/Canele-v{version}.apk
+  /// URL pattern: https://github.com/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner/releases/download/v{version}/Canele-v{version}.apk
   Future<File?> downloadAPK(
     String remoteVersion, {
     void Function(double progress)? onProgress,
   }) async {
     try {
       final apkUrl =
-          'https://github.com/YTFL/Canale/releases/download/v$remoteVersion/Canele-v$remoteVersion.apk';
+          'https://github.com/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner/releases/download/v$remoteVersion/Canele-v$remoteVersion.apk';
 
       final client = http.Client();
       final request = http.Request('GET', Uri.parse(apkUrl));

@@ -70,7 +70,7 @@ Canelé is built specifically for light novel, manga, comic, and book collectors
 
 ## 📦 Download & Installation
 
-1. Download **`Canelé-v1.0.0.apk`** from the [GitHub Releases](https://github.com/YTFL/Canale/releases/tag/v1.0.0) page.
+1. Download **`Canelé-v1.0.0.apk`** from the [GitHub Releases](https://github.com/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner/releases/tag/v1.0.0) page.
 2. Open the `.apk` file on your Android device and confirm installation.
 3. Launch Canelé and enjoy tracking your collection!
 
@@ -79,5 +79,5 @@ Canelé is built specifically for light novel, manga, comic, and book collectors
 ## 📄 License & Open Source
 
 Canelé is free and open-source software licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
-- **Repository:** [https://github.com/YTFL/Canale](https://github.com/YTFL/Canale)
-- **Bug Reports & Feature Requests:** [https://github.com/YTFL/Canale/issues](https://github.com/YTFL/Canale/issues)
+- **Repository:** [https://github.com/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner](https://github.com/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner)
+- **Bug Reports & Feature Requests:** [https://github.com/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner/issues](https://github.com/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner/issues)
