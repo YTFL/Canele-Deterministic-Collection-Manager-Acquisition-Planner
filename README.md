@@ -160,7 +160,7 @@ Your data is yours forever. Canelé provides complete data freedom:
 For developers, contributors, and curious users interested in deep architectural details:
 - **[TECHNICAL.md](TECHNICAL.md)**: Deep dive into the Riverpod state architecture, Hive NoSQL persistence, deterministic mathematical formulas, universal regex tokenizers, and custom widget system.
 - **[CHANGELOG.md](CHANGELOG.md)**: Chronological version history following Semantic Versioning.
-- **[RELEASE_NOTES.md](RELEASE_NOTES.md)**: Detailed release announcement for v1.0.0.
+- **[RELEASE_NOTES.md](RELEASE_NOTES.md)**: Detailed release announcement.
 
 ---
 
