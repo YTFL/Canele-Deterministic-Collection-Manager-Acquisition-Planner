@@ -1,7 +1,7 @@
 <div align="center">
 
 # Canelé 🍮
-### *Deterministic Book Collection Manager & Acquisition Planner*
+### *Deterministic Collection Manager & Acquisition Planner*
 
 [![Android](https://img.shields.io/badge/Platform-Android%20(API%2021%2B)-3DDC84?style=flat&logo=android&logoColor=white)](https://www.android.com)
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?style=flat&logo=flutter&logoColor=white)](https://flutter.dev)
