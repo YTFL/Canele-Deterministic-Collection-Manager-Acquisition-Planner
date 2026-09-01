@@ -1,93 +1,60 @@
-# Canelé v1.0.0 — The Golden Crust Debut 🍮
+# Canelé v1.0.0 Release Notes 🍮
 
 > **Release Date:** September 1, 2026  
-> **Tag:** `v1.0.0`  
-> **Status:** Stable Release  
-> **License:** [GNU AGPL-3.0](LICENSE)
+> **Target Platform:** Android (API 21+ / Android 5.0+)  
+> **Tag:** `v1.0.0`
 
-We are thrilled to announce the official **v1.0.0 release of Canelé**, the deterministic, local-first book collection manager and acquisition cadence planner designed specifically for collectors of light novels, manga, comics, and literature.
+I am thrilled to announce the official **v1.0.0** release of **Canelé**, a local-first, 100% deterministic book collection manager and acquisition planner for Android.
 
----
-
-## 🌟 What is Canelé?
-
-Most modern cataloging apps try to predict what you should read using black-box machine learning algorithms or lock your personal collection behind mandatory cloud logins and subscription paywalls.
-
-**Canelé takes a fundamentally different path:**
-- **Zero Black-Box AI**: All monthly recommendations are derived from explicit, user-configured multi-pass priority rules.
-- **Strictly Local-First**: Your database is stored locally on your device with embedded Hive NoSQL boxes.
-- **Deterministic Quota Mathematics**: Plan your reading and acquisition budget through an auditable quota ledger with auto-skip projection math.
-- **Bespoke Pastry Aesthetic**: A warm, polished UI inspired by the French *canelé de Bordeaux* pastry.
+Canelé is engineered specifically for book, manga, and light novel collectors who want to pace their reading and purchases deliberately—without depending on opaque algorithms, ad trackers, or cloud subscriptions.
 
 ---
 
-## 🚀 Flagship Features in v1.0.0
+## 🌟 Highlights
 
-### 1. 📐 Deterministic Quota & Cadence Engine
-- **Triple-Bucket Ledger**: Track acquisitions across **Regular**, **Bonus**, and **Gift** categories. Gifts never consume budget quota.
-- **Recurring & One-Off Bonuses**: Schedule recurring bonus months (e.g. May birthdays or December holidays) or log manual +1 bonuses on the fly.
-- **No-Book Month Exclusion**: Designate no-buy periods so your cadence expectation isn't distorted.
-- **Forward Auto-Skip Simulation**: If you acquire books ahead of schedule, Canelé automatically computes the exact future month (e.g. *"November 2026"*) when your quota catches back up.
+### 1. Mathematical Quota Cadence Engine
+Say goodbye to arbitrary wishlists. Canelé computes your acquisition budget deterministically:
+- **Set Your Start Date & Pace:** Choose when your tracking begins and how many books you want to buy each month (e.g. 1 book/month).
+- **Separated Quota Buckets:** Distinguishes between **Regular purchases**, **Bonus acquisitions** (holidays, birthdays, rewards), and **Gifts** (which never consume your budget).
+- **Auto-Skip Simulation:** Bought 4 books during a convention sale? Canelé calculates your exact forward catch-up date (e.g., *"Normal quota pace catches up in November 2026"*), preventing quota anxiety.
+- **No-Book Months:** Configure recurring or one-off hiatus months where quota does not accumulate.
 
-### 2. 🎯 Multi-Pass Recommendation Waterfall (Rule Studio)
-- **Visual Sequential Queue**: Build an auditable rule pipeline that inspects your backlog each month to fill up to 4 recommendation slots.
-- **Starter Rule Presets**:
-  - *Stay Caught Up*: Targets active series missing exactly 1 released volume.
-  - *Prioritize Restocked Volumes*: Automatically elevates restocked watchlist items.
-  - *Series Closer to Completion*: Targets series with highest completion percentage first.
-  - *Sequential Next Volume*: Recommends the next unread volume in sequential order.
-- **Deduplication & Take Limits**: Built-in 1-volume-per-series deduplication prevents a single series from dominating your monthly quota.
+### 2. Rule Studio & 4-Slot Priority Waterfall
+Take full control over what books you should buy next with an auditable recommendation pipeline:
+- **Sequential Passes:** The engine runs candidate books through an ordered priority waterfall to fill your 4 monthly dashboard target slots.
+- **Built-in Strategies:**
+  - 🔄 *Stay Caught Up:* Recommends active series missing just 1 volume.
+  - 🔔 *Restock Priority:* Bumps restocked volumes to the front of the line.
+  - 📊 *Cascading Completion:* Prioritizes series closest to 100% completion.
+  - ⏩ *Sequential Next Volume:* Always suggests the lowest unowned volume first.
+- **Custom Rule Studio:** Create custom passes with custom status filters, availability conditions, and sorting criteria.
 
-### 3. 📦 Universal Smart File Importer
-- **Multi-Format Parsing**: Ingest entire book libraries from **Goodreads CSV**, **StoryGraph CSV**, **Generic CSV**, and **Microsoft Excel (`.xlsx`)** spreadsheets.
-- **Smart Title Normalization**: Automated regex cleans format/binding noise (`(Light Novel)`, `(Manga)`, `(Paperback)`, `(Hardcover)`) and extracts decimal volume numbers (e.g. *Vol. 11.5* side stories).
-- **Interactive Review Table**: Preview and modify series details before confirming the import.
+### 3. Comprehensive Series & Volume Tracking
+- **Fractional & Decimal Volumes:** Native support for *Vol. 11.5* side stories, omnibus editions, and unnumbered special releases.
+- **Bulk Marking:** Mark volume spans (e.g., *Volumes 1 to 15*) as owned or unowned in seconds.
+- **Smart Lifecycle Assistant:** Prompts to transition Wishlist items to Active upon purchase, and Active series to Completed when finished.
 
-### 4. 📊 Statistics & Deep Insights
-- **Key Metrics Dashboard**: Instant overview of Total Owned volumes, Total Series, and Active vs. Completed progress.
-- **Bought vs. Gifted Split**: Visual metric breakdown comparing self-purchased books against gifts.
-- **Format Distribution**: Visual pie/bar charts illustrating the balance between Light Novels, Manga, Comics, and Books.
+### 4. Universal Importer & Smart Metadata Cleaning
+- **Multi-Format Support:** Import existing collections from **Goodreads CSV**, **StoryGraph CSV**, generic **CSV**, or **Microsoft Excel (.xlsx)** files.
+- **Regex Normalization:** Automatically strips format noise (`(Light Novel)`, `(Paperback)`, `(Manga)`) and extracts clean titles and volume numbers.
+- **Interactive Review:** Inspect and toggle parsed items before importing.
 
-### 5. 💾 Sovereign Local Storage & Auto-Backup Hub
-- **Automated Rolling Backups**: Dual-file rolling backup system (`canele_autobackup.json` and `canele_autobackup_prev.json`) executes in the background on every change.
-- **Full Database Portability**: One-tap export and restore of full database state (`.canele` / `.json`).
-- **Spreadsheet Export**: Export your complete catalog into clean CSV or styled Excel `.xlsx` spreadsheets.
+### 5. Local-First & 100% Private
+- **Zero Cloud Dependence:** All data is stored locally on your device via embedded Hive NoSQL boxes.
+- **Full Portability:** One-click full state JSON backups, automated rolling local backups, and clean CSV/Excel collection exports.
 
 ---
 
 ## 📦 Download & Installation
 
-| Platform | Package / Binary | Installation |
-| :--- | :--- | :--- |
-| **Android** | `app-release.apk` | Download and install APK directly (Android 5.0+ / API 21+) |
-| **Android** | `app-release.aab` | Google Play Store Bundle |
-| **Desktop** | Windows / Linux / macOS | Standalone desktop binary from release assets |
-| **Web** | Static Web Build | Host statically on GitHub Pages, Cloudflare, or local browser |
+1. Download **`Canelé-v1.0.0.apk`** from the assets below.
+2. Open the `.apk` file on your Android device and confirm installation.
+3. Launch Canelé and complete the friendly 4-step onboarding wizard.
 
 ---
 
-## ⚡ Quick Start in 3 Steps
+## 📄 License & Source Code
 
-1. **Launch Canelé** on your device and complete the 4-step setup wizard to configure your timeline start month and monthly cadence.
-2. **Import or Add Series**: Ingest your existing library using the **File Hub** (Goodreads / CSV / Excel) or tap **Add Series** to create series with auto-generated volume numbers.
-3. **Check Your Dashboard**: View your monthly target queue, quota balance, and acquisition pace calculated deterministically.
-
----
-
-## 🧪 Quality & Test Metrics
-
-- **Static Analyzer**: `flutter analyze` — **0 issues**.
-- **Automated Tests**: 56 unit and widget tests covering arithmetic, parsers, and UI flows with 100% pass rate.
-- **Dependencies**: Built on Flutter 3.22+, Dart 3.4+, Riverpod 2.5+, and Hive 2.2+.
-
----
-
-## 🤝 Open Source & Community
-
-Canelé is free and open-source software under the **[GNU Affero General Public License v3.0](LICENSE)**.
-
-- **GitHub Repository**: [https://github.com/YTFL/Canale](https://github.com/YTFL/Canale)
-- **Technical Documentation**: [TECHNICAL.md](TECHNICAL.md)
-- **Changelog**: [CHANGELOG.md](CHANGELOG.md)
-
-*Crafted with care and warm custard amber.* 🍮
+Canelé is free and open-source software licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
+- Repository: [https://github.com/YTFL/Canale](https://github.com/YTFL/Canale)
+- Issues & Feedback: [https://github.com/YTFL/Canale/issues](https://github.com/YTFL/Canale/issues)
