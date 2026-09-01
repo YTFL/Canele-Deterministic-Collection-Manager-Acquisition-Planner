@@ -29,11 +29,11 @@
 
 | Dashboard & Quota Balance | Series Detail & Bulk Mark | Rule Studio & Cadence |
 | :---: | :---: | :---: |
-| ![Dashboard Screenshot](screenshots/dashboard.png) | ![Series Detail Screenshot](screenshots/series_detail.png) | ![Rule Studio Screenshot](screenshots/rule_studio.png) |
+| ![Dashboard Screenshot](screenshots/dashboard.jpg) | ![Series Detail Screenshot](screenshots/series_detail.jpg) | ![Rule Studio Screenshot](screenshots/rule_studio.jpg) |
 
 | Statistics & Insights | Universal File Importer |
-| :---: | :---: | :---: |
-| ![Stats Screenshot](screenshots/stats.png) | ![Importer Screenshot](screenshots/importer.png) |
+| :---: | :---: |
+| ![Stats Screenshot](screenshots/stats.jpg) | ![Importer Screenshot](screenshots/importer.jpg) |
 
 </div>
 
