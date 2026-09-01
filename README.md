@@ -31,9 +31,9 @@
 | :---: | :---: | :---: |
 | ![Dashboard Screenshot](screenshots/dashboard.png) | ![Series Detail Screenshot](screenshots/series_detail.png) | ![Rule Studio Screenshot](screenshots/rule_studio.png) |
 
-| Statistics & Insights | Universal File Importer | Setup Wizard & Onboarding |
+| Statistics & Insights | Universal File Importer |
 | :---: | :---: | :---: |
-| ![Stats Screenshot](screenshots/stats.png) | ![Importer Screenshot](screenshots/importer.png) | ![Onboarding Screenshot](screenshots/onboarding.png) |
+| ![Stats Screenshot](screenshots/stats.png) | ![Importer Screenshot](screenshots/importer.png) |
 
 </div>
 
