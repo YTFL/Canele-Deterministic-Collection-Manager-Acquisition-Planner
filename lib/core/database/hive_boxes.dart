@@ -10,12 +10,14 @@ class HiveBoxes {
   static const String ruleConfigBoxName = 'rule_config_box';
   static const String rulesBoxName = 'rules_box';
   static const String passesBoxName = 'passes_box'; // backward-compatible alias
+  static const String appUpdatesBoxName = 'app_updates_box';
 
   static Box<Map>? _seriesBox;
   static Box<Map>? _volumesBox;
   static Box<Map>? _transactionsBox;
   static Box<Map>? _ruleConfigBox;
   static Box<Map>? _rulesBox;
+  static Box<Map>? _appUpdatesBox;
 
   static Box<Map> get seriesBox => _seriesBox!;
   static Box<Map> get volumesBox => _volumesBox!;
@@ -23,6 +25,7 @@ class HiveBoxes {
   static Box<Map> get ruleConfigBox => _ruleConfigBox!;
   static Box<Map> get rulesBox => _rulesBox!;
   static Box<Map> get passesBox => _rulesBox!; // Alias for rules box
+  static Box<Map> get appUpdatesBox => _appUpdatesBox!;
 
   static Future<void> init([String? path]) async {
     if (path != null) {
@@ -50,6 +53,7 @@ class HiveBoxes {
     _transactionsBox = await Hive.openBox<Map>(transactionsBoxName);
     _ruleConfigBox = await Hive.openBox<Map>(ruleConfigBoxName);
     _rulesBox = await Hive.openBox<Map>(rulesBoxName);
+    _appUpdatesBox = await Hive.openBox<Map>(appUpdatesBoxName);
 
     // Seed default RuleConfig if empty
     if (_ruleConfigBox!.isEmpty) {
@@ -67,5 +71,6 @@ class HiveBoxes {
     await _transactionsBox?.clear();
     await _ruleConfigBox?.clear();
     await _rulesBox?.clear();
+    await _appUpdatesBox?.clear();
   }
 }
