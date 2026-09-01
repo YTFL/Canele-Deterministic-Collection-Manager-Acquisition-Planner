@@ -25,11 +25,6 @@
 
 ---
 
-## 🍮 Visual Showcase
-
-> [!NOTE]
-> Canelé's warm visual aesthetic draws direct inspiration from the French *canelé de Bordeaux* pastry — warm custard creams (`#FDFBF7`), caramelized ambers (`#8C4A2F`), flaky crust borders (`#EADBCE`), and rich espresso darks (`#251C17`).
-
 <div align="center">
 
 | Dashboard & Quota Balance | Series Detail & Bulk Mark | Rule Studio & Cadence |
