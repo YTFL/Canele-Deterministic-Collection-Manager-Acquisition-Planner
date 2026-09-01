@@ -46,13 +46,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final releaseNotes = await rootBundle.loadString('RELEASE_NOTES.md');
       final lines = releaseNotes.replaceAll('\r\n', '\n').split('\n');
       for (final line in lines) {
-        final trimmed = line.trim();
-        if (trimmed.startsWith('**Release Date:**')) {
-          final dateText = trimmed.replaceFirst('**Release Date:**', '').trim();
-          return DateFormat('MMMM d, y').parseStrict(dateText);
+        final match = RegExp(
+          r'Release Date[:\*]*\s*([A-Za-z]+ \d{1,2}, \d{4}|\d{4}-\d{2}-\d{2})',
+          caseSensitive: false,
+        ).firstMatch(line);
+        if (match != null) {
+          final dateText = match.group(1)?.trim();
+          if (dateText != null) {
+            try {
+              return DateFormat('MMMM d, y').parse(dateText);
+            } catch (_) {
+              try {
+                return DateTime.parse(dateText);
+              } catch (_) {}
+            }
+          }
         }
       }
-      return null;
+    } catch (_) {}
+
+    // Fallback to latest GitHub release published date
+    try {
+      return await _updateService.fetchLatestReleaseDate();
     } catch (_) {
       return null;
     }

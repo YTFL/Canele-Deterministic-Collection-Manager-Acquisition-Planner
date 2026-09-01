@@ -214,6 +214,32 @@ class UpdateService {
     return copy;
   }
 
+  /// Fetch the published date of the latest GitHub release
+  Future<DateTime?> fetchLatestReleaseDate() async {
+    try {
+      const latestReleaseUrl =
+          'https://api.github.com/repos/YTFL/Canale/releases/latest';
+
+      final response = await http.get(Uri.parse(latestReleaseUrl)).timeout(
+        const Duration(seconds: 10),
+      );
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        final publishedAt = json['published_at'] as String?;
+        if (publishedAt == null || publishedAt.isEmpty) {
+          return null;
+        }
+        return DateTime.tryParse(publishedAt);
+      }
+
+      return null;
+    } catch (e) {
+      debugPrint('Error fetching latest release date: $e');
+      return null;
+    }
+  }
+
   /// Download APK file from GitHub releases
   /// URL pattern: https://github.com/YTFL/Canale/releases/download/v{version}/Canele-v{version}.apk
   Future<File?> downloadAPK(
