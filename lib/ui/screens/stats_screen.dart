@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/currency_helper.dart';
 import '../../core/utils/date_formatter.dart';
 import '../../core/utils/type_helper.dart';
 import '../../providers/series_provider.dart';
@@ -8,11 +9,24 @@ import '../../providers/quota_provider.dart';
 import '../widgets/canele_card.dart';
 import '../widgets/canele_progress_bar.dart';
 
-class StatsScreen extends ConsumerWidget {
+class StatsScreen extends ConsumerStatefulWidget {
   const StatsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<StatsScreen> createState() => _StatsScreenState();
+}
+
+class _StatsScreenState extends ConsumerState<StatsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(exchangeRatesNotifierProvider.notifier).checkAndAutoFetch();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -20,6 +34,7 @@ class StatsScreen extends ConsumerWidget {
     final allSeries = ref.watch(seriesNotifierProvider);
     final quotaSummary = ref.watch(quotaProvider);
     final config = ref.watch(ruleConfigNotifierProvider);
+    ref.watch(exchangeRatesNotifierProvider);
 
     // Volume metrics
     final ownedVolumes = allVolumes.where((v) => v.isOwned).toList();
@@ -320,6 +335,92 @@ class StatsScreen extends ConsumerWidget {
                           count: totalGifted,
                           percentage: giftPercentage,
                           color: AppColors.statusSuccess,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 22),
+
+            // Financial & Spending Analytics
+            const _SectionHeader(
+              title: 'Financial & Spend Insights',
+              subtitle: 'Cost overview and average investment per volume',
+              icon: Icons.payments_rounded,
+            ),
+            const SizedBox(height: 10),
+
+            CaneleCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Total Spent',
+                              style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              CurrencyHelper.format(quotaSummary.totalSpent, currencyCode: config.currency),
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? AppColors.caramelizedAmberLight : AppColors.caramelizedAmber,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Across all logged acquisitions',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 48,
+                        color: isDark ? AppColors.darkPastryBorder : AppColors.pastryCrustBorder,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Average / Volume',
+                              style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              totalBought > 0
+                                  ? CurrencyHelper.format(quotaSummary.totalSpent / totalBought, currencyCode: config.currency)
+                                  : 'N/A',
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Per purchased volume',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],

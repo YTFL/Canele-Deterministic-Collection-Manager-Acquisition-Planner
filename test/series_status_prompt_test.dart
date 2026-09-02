@@ -35,6 +35,10 @@ class TestSeriesNotifier extends StateNotifier<List<Series>> implements SeriesNo
     bool isGift = false,
     List<String> tags = const [],
     Map<String, dynamic> customMetadata = const {},
+    String? currency,
+    double? defaultVolumePrice,
+    String? defaultVolumeCurrency,
+    double? seriesPrice,
   }) async {
     final s = Series(
       id: 's_new',
@@ -625,6 +629,7 @@ void main() {
 
       // Switch Owned to true
       final ownedSwitch = find.widgetWithText(SwitchListTile, 'Owned');
+      await tester.scrollUntilVisible(ownedSwitch, 500, scrollable: find.byType(Scrollable).last);
       await tester.tap(ownedSwitch);
       await tester.pumpAndSettle();
 

@@ -5,12 +5,15 @@ import 'package:intl/intl.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/currency_helper.dart';
+import '../../core/utils/date_formatter.dart';
 import '../../core/database/json_backup_service.dart';
 import '../../models/app_update_model.dart';
 import '../../providers/quota_provider.dart';
 import '../../providers/rule_provider.dart';
 import '../../providers/series_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../services/exchange_rate_service.dart';
 import '../../services/update_service.dart';
 import '../widgets/canele_card.dart';
 import '../widgets/update_dialog.dart';
@@ -223,10 +226,103 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  Future<void> _showCurrencyPicker(BuildContext context, String currentCurrency) async {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkPastryCard : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Select Currency',
+                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ...CurrencyHelper.supportedCurrencies.map((opt) {
+                final isSelected = opt.code == currentCurrency;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.caramelizedAmber.withValues(alpha: isDark ? 0.2 : 0.1)
+                        : (isDark ? AppColors.darkPastryCardElevated : AppColors.pastryCrustLight),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected
+                          ? AppColors.caramelizedAmber
+                          : (isDark ? AppColors.darkPastryBorder : AppColors.pastryCrustBorder),
+                      width: isSelected ? 1.5 : 0.8,
+                    ),
+                  ),
+                  child: ListTile(
+                    leading: CurrencySymbolBox(
+                      currencyCode: opt.code,
+                      isSelected: isSelected,
+                    ),
+                    title: Text(
+                      opt.name,
+                      style: TextStyle(
+                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: Text('Code: ${opt.code} · Symbol: ${opt.symbol}'),
+                    trailing: isSelected
+                        ? const Icon(Icons.check_circle_rounded, color: AppColors.caramelizedAmber)
+                        : null,
+                    onTap: () async {
+                      final currentConfig = ref.read(ruleConfigNotifierProvider);
+                      final updatedConfig = currentConfig.copyWith(currency: opt.code);
+                      await ref.read(ruleConfigNotifierProvider.notifier).updateConfig(updatedConfig);
+                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context)
+                          ..clearSnackBars()
+                          ..showSnackBar(
+                            SnackBar(
+                              content: Text('Currency updated to ${opt.name}!'),
+                              backgroundColor: AppColors.caramelizedAmber,
+                            ),
+                          );
+                      }
+                    },
+                  ),
+                );
+              }),
+              const SizedBox(height: 10),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final themeMode = ref.watch(themeNotifierProvider);
+    final ruleConfig = ref.watch(ruleConfigNotifierProvider);
+    final exchangeRates = ref.watch(exchangeRatesNotifierProvider);
+    final currentCurrencyOption = CurrencyHelper.getOption(ruleConfig.currency);
 
     return Scaffold(
       appBar: AppBar(
@@ -237,56 +333,133 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Theme Selector
+            // Theme Selector & Preferences
             Text(
-              'Appearance',
+              'Appearance & Preferences',
               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             CaneleCard(
               padding: const EdgeInsets.all(14),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
                 children: [
-                  const Text('App Theme'),
-                  SegmentedButton<ThemeMode>(
-                    showSelectedIcon: false,
-                    segments: const [
-                      ButtonSegment(
-                        value: ThemeMode.system,
-                        icon: Icon(Icons.brightness_auto_rounded, size: 18),
-                        tooltip: 'System Auto',
-                      ),
-                      ButtonSegment(
-                        value: ThemeMode.light,
-                        icon: Icon(Icons.light_mode_rounded, size: 18),
-                        tooltip: 'Light Mode',
-                      ),
-                      ButtonSegment(
-                        value: ThemeMode.dark,
-                        icon: Icon(Icons.dark_mode_rounded, size: 18),
-                        tooltip: 'Dark Mode',
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('App Theme'),
+                      SegmentedButton<ThemeMode>(
+                        showSelectedIcon: false,
+                        segments: const [
+                          ButtonSegment(
+                            value: ThemeMode.system,
+                            icon: Icon(Icons.brightness_auto_rounded, size: 18),
+                            tooltip: 'System Auto',
+                          ),
+                          ButtonSegment(
+                            value: ThemeMode.light,
+                            icon: Icon(Icons.light_mode_rounded, size: 18),
+                            tooltip: 'Light Mode',
+                          ),
+                          ButtonSegment(
+                            value: ThemeMode.dark,
+                            icon: Icon(Icons.dark_mode_rounded, size: 18),
+                            tooltip: 'Dark Mode',
+                          ),
+                        ],
+                        selected: {themeMode},
+                        onSelectionChanged: (set) =>
+                            ref.read(themeNotifierProvider.notifier).setThemeMode(set.first),
+                        style: ButtonStyle(
+                          visualDensity: VisualDensity.compact,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                            if (states.contains(WidgetState.selected)) {
+                              return AppColors.caramelizedAmber;
+                            }
+                            return null;
+                          }),
+                          foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                            if (states.contains(WidgetState.selected)) {
+                              return Colors.white;
+                            }
+                            return null;
+                          }),
+                        ),
                       ),
                     ],
-                    selected: {themeMode},
-                    onSelectionChanged: (set) =>
-                        ref.read(themeNotifierProvider.notifier).setThemeMode(set.first),
-                    style: ButtonStyle(
-                      visualDensity: VisualDensity.compact,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
-                        if (states.contains(WidgetState.selected)) {
-                          return AppColors.caramelizedAmber;
-                        }
-                        return null;
-                      }),
-                      foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
-                        if (states.contains(WidgetState.selected)) {
-                          return Colors.white;
-                        }
-                        return null;
-                      }),
+                  ),
+                  const Divider(height: 20),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CurrencySymbolBox(
+                      currencyCode: currentCurrencyOption.code,
+                      size: 36,
+                      backgroundColor: AppColors.caramelizedAmber.withValues(alpha: 0.12),
+                      textColor: AppColors.caramelizedAmber,
                     ),
+                    title: const Text('Primary Currency', style: TextStyle(fontWeight: FontWeight.w700)),
+                    subtitle: Text('${currentCurrencyOption.name} (${currentCurrencyOption.symbol})'),
+                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                    onTap: () => _showCurrencyPicker(context, ruleConfig.currency),
+                  ),
+                  const Divider(height: 20),
+                  Builder(
+                    builder: (context) {
+                      final canSync = ExchangeRateService.canSync(rates: exchangeRates);
+                      final remaining = ExchangeRateService.timeUntilNextSync(rates: exchangeRates);
+                      final cooldownText = ExchangeRateService.formatCooldownRemaining(remaining);
+
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.currency_exchange_rounded, color: AppColors.caramelizedAmber, size: 24),
+                        title: const Text('Exchange Rates Sync', style: TextStyle(fontWeight: FontWeight.w700)),
+                        subtitle: Text(
+                          exchangeRates.isSeed
+                              ? 'Using baseline offline rates. Tap to sync live.'
+                              : 'Synced: ${DateFormatter.formatDisplay(exchangeRates.lastUpdated)} ${canSync ? "· Sync available" : "· Next in $cooldownText"}',
+                        ),
+                        trailing: canSync
+                            ? IconButton(
+                                icon: const Icon(Icons.sync_rounded, color: AppColors.caramelizedAmber),
+                                tooltip: 'Sync Exchange Rates Now',
+                                onPressed: () async {
+                                  ScaffoldMessenger.of(context)
+                                    ..clearSnackBars()
+                                    ..showSnackBar(
+                                      const SnackBar(content: Text('Syncing latest exchange rates...')),
+                                    );
+                                  final success = await ref.read(exchangeRatesNotifierProvider.notifier).manualSync();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context)
+                                      ..clearSnackBars()
+                                      ..showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            success
+                                                ? 'Exchange rates successfully updated and saved offline!'
+                                                : 'Could not reach exchange rate servers. Using stored offline rates.',
+                                          ),
+                                          backgroundColor: success ? AppColors.statusSuccess : AppColors.statusWarning,
+                                        ),
+                                      );
+                                  }
+                                },
+                              )
+                            : Tooltip(
+                                message: '24-hour rate limit active. Next sync in $cooldownText.',
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Icon(
+                                    Icons.sync_disabled_rounded,
+                                    color: Theme.of(context).brightness == Brightness.dark
+                                        ? AppColors.darkPastryBorder
+                                        : AppColors.pastryCrustBorder,
+                                    size: 22,
+                                  ),
+                                ),
+                              ),
+                      );
+                    },
                   ),
                 ],
               ),

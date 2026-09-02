@@ -35,7 +35,10 @@ class DatabaseMigrator {
       // 4. Migrate Rules Box
       await _migrateRulesBox();
 
-      // 5. Update Schema Version Key
+      // 5. Migrate Rule Config Box
+      await _migrateRuleConfigBox();
+
+      // 6. Update Schema Version Key
       await configBox.put(_schemaVersionKey, {
         'version': currentSchemaVersion,
         'migratedAt': DateTime.now().toIso8601String(),
@@ -190,6 +193,18 @@ class DatabaseMigrator {
         if (modified) {
           await rulesBox.put(key, map);
         }
+      }
+    }
+  }
+
+  static Future<void> _migrateRuleConfigBox() async {
+    final configBox = HiveBoxes.ruleConfigBox;
+    final raw = configBox.get('global_config');
+    if (raw is Map) {
+      final map = Map<String, dynamic>.from(raw);
+      if (!map.containsKey('currency') || map['currency'] == null) {
+        map['currency'] = 'USD';
+        await configBox.put('global_config', map);
       }
     }
   }

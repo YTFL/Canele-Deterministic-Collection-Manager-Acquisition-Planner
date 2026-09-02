@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/currency_helper.dart';
 import '../../core/utils/type_helper.dart';
 import '../../providers/series_provider.dart';
+import '../../providers/quota_provider.dart';
 import 'canele_dropdown.dart';
 import '../helpers/series_status_prompt_helper.dart';
 
@@ -20,12 +22,16 @@ class _AddSeriesSheetState extends ConsumerState<AddSeriesSheet> {
   final _titleController = TextEditingController();
   final _totalVolumesController = TextEditingController(text: '1');
   final _ownedCountController = TextEditingController(text: '0');
+  final _priceController = TextEditingController();
+  final _defaultVolPriceController = TextEditingController(text: CurrencyHelper.defaultVolumePrice.toString());
 
   SeriesStructure _structure = SeriesStructure.multiVolume;
   String? _selectedType;
   final Set<String> _customTypes = {};
   String _collectionStatus = 'active';
   String _releaseStatus = 'ongoing';
+  String? _selectedCurrency;
+  String? _selectedDefaultVolCurrency = CurrencyHelper.defaultVolumeCurrency;
   bool _markOwned = true;
   int _ownedCount = 0;
   bool _isGift = false;
@@ -35,6 +41,8 @@ class _AddSeriesSheetState extends ConsumerState<AddSeriesSheet> {
     _titleController.dispose();
     _totalVolumesController.dispose();
     _ownedCountController.dispose();
+    _priceController.dispose();
+    _defaultVolPriceController.dispose();
     super.dispose();
   }
 
@@ -472,6 +480,96 @@ class _AddSeriesSheetState extends ConsumerState<AddSeriesSheet> {
                   ),
                 ],
               ),
+              const SizedBox(height: 14),
+
+              // Default Volume Price (Optional)
+              Text('Default Price Per Volume (Optional)', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 2),
+              Text(
+                'Used for all volumes in this series unless an explicit price is entered for a volume',
+                style: theme.textTheme.bodySmall?.copyWith(fontSize: 11),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: TextFormField(
+                      controller: _defaultVolPriceController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        hintText: '14.99',
+                        prefixIcon: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                          child: CurrencySymbolText(
+                            currencyCode: _selectedDefaultVolCurrency ?? CurrencyHelper.defaultVolumeCurrency,
+                            baseFontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: CurrencyDropdownField(
+                      value: _selectedDefaultVolCurrency ?? CurrencyHelper.defaultVolumeCurrency,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() => _selectedDefaultVolCurrency = val);
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              // Series Combined Price (Optional)
+              Text('Combined Series Price (Optional)', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 2),
+              Text(
+                'Sets a combined total price for the whole series/bundle instead of pricing individual volumes',
+                style: theme.textTheme.bodySmall?.copyWith(fontSize: 11),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: TextFormField(
+                      controller: _priceController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        hintText: '0.00',
+                        prefixIcon: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                          child: CurrencySymbolText(
+                            currencyCode: _selectedCurrency ?? ref.watch(ruleConfigNotifierProvider).currency,
+                            baseFontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: CurrencyDropdownField(
+                      value: _selectedCurrency ?? ref.watch(ruleConfigNotifierProvider).currency,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() => _selectedCurrency = val);
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 24),
 
               // Action Buttons
@@ -500,6 +598,12 @@ class _AddSeriesSheetState extends ConsumerState<AddSeriesSheet> {
                       final markOwned = isCompleted ? true : _markOwned;
                       final isGift = isCompleted ? false : _isGift;
 
+                      final parsedPrice = CurrencyHelper.parsePrice(_priceController.text);
+                      final activeCurrency = _selectedCurrency ?? ref.read(ruleConfigNotifierProvider).currency;
+
+                      final parsedDefaultVolPrice = CurrencyHelper.parsePrice(_defaultVolPriceController.text);
+                      final activeDefaultVolCurrency = _selectedDefaultVolCurrency ?? CurrencyHelper.defaultVolumeCurrency;
+
                       final series = await ref.read(seriesNotifierProvider.notifier).createSeriesWithVolumes(
                         title: _titleController.text.trim(),
                         type: TypeHelper.normalizeKey(_selectedType ?? 'book'),
@@ -509,6 +613,10 @@ class _AddSeriesSheetState extends ConsumerState<AddSeriesSheet> {
                         ownedCount: owned,
                         markOwned: markOwned,
                         isGift: isGift,
+                        seriesPrice: parsedPrice > 0 ? parsedPrice : null,
+                        currency: parsedPrice > 0 ? activeCurrency : null,
+                        defaultVolumePrice: parsedDefaultVolPrice > 0 ? parsedDefaultVolPrice : CurrencyHelper.defaultVolumePrice,
+                        defaultVolumeCurrency: parsedDefaultVolPrice > 0 ? activeDefaultVolCurrency : CurrencyHelper.defaultVolumeCurrency,
                       );
 
                       if (context.mounted) {

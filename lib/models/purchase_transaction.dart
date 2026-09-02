@@ -4,6 +4,7 @@ class PurchaseTransaction {
   final DateTime purchaseDate;
   final String quotaBucket; // regular, bonus, gift
   final double price;
+  final String? currency;
   final String notes;
 
   const PurchaseTransaction({
@@ -12,6 +13,7 @@ class PurchaseTransaction {
     required this.purchaseDate,
     required this.quotaBucket,
     this.price = 0.0,
+    this.currency,
     this.notes = '',
   });
 
@@ -21,6 +23,8 @@ class PurchaseTransaction {
     DateTime? purchaseDate,
     String? quotaBucket,
     double? price,
+    String? currency,
+    bool clearCurrency = false,
     String? notes,
   }) {
     return PurchaseTransaction(
@@ -29,6 +33,7 @@ class PurchaseTransaction {
       purchaseDate: purchaseDate ?? this.purchaseDate,
       quotaBucket: quotaBucket ?? this.quotaBucket,
       price: price ?? this.price,
+      currency: clearCurrency ? null : (currency ?? this.currency),
       notes: notes ?? this.notes,
     );
   }
@@ -40,6 +45,7 @@ class PurchaseTransaction {
       'purchaseDate': purchaseDate.toIso8601String(),
       'quotaBucket': quotaBucket,
       'price': price,
+      'currency': currency,
       'notes': notes,
     };
   }
@@ -55,12 +61,18 @@ class PurchaseTransaction {
     final rawPrice = map['price'];
     final double priceVal = (rawPrice is num) ? rawPrice.toDouble() : 0.0;
 
+    final rawCurrency = map['currency'];
+    final String? parsedCurrency = (rawCurrency is String && rawCurrency.isNotEmpty)
+        ? rawCurrency.toUpperCase().trim()
+        : null;
+
     return PurchaseTransaction(
       id: map['id'] as String? ?? '',
       volumeId: map['volumeId'] as String? ?? '',
       purchaseDate: parsedDate,
       quotaBucket: map['quotaBucket'] as String? ?? 'regular',
       price: priceVal,
+      currency: parsedCurrency,
       notes: map['notes'] as String? ?? '',
     );
   }

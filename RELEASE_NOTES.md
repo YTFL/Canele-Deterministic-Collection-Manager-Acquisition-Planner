@@ -1,76 +1,58 @@
-# Canelé v1.0.0 Release Notes 🍮
+# Canelé v1.1.0 Release Notes 🍮
 
-> **Release Date:** September 1, 2026  
+> **Release Date:** September 2, 2026  
 > **Target Platform:** Android (API 21+ / Android 5.0+)  
-> **Tag:** `v1.0.0`
+> **Tag:** `v1.1.0`
 
-I am thrilled to announce the official **v1.0.0** release of **Canelé**, a local-first, 100% deterministic book collection manager and acquisition planner for Android!
-
-Canelé is built specifically for light novel, manga, comic, and book collectors who want to pace their reading and purchasing habits deliberately—without relying on black-box recommendation algorithms, ad networks, or cloud subscriptions.
+**Canelé v1.1.0** introduces full **multi-currency support**, **live and offline exchange rate conversion**, **series-level & default volume pricing**, **enhanced spend analytics**, and a **v2 database schema migration** while preserving 100% offline, local-first privacy.
 
 ---
 
-## 🌟 What's in Canelé v1.0.0
+## 🌟 What's New in Canelé v1.1.0
 
-### 📐 1. Deterministic Quota & Cadence Engine
-- **Transparent Arithmetic**: Your monthly allowance is calculated purely from your declared start month, monthly cadence, scheduled bonus months, and purchase logs.
-- **Three Separate Quota Buckets**:
-  - **Regular Quota**: Your planned monthly book budget (e.g. 1 book/month).
-  - **Bonus Quota**: Extra allocations for birthdays, holidays, conventions, or personal milestones.
-  - **Gifts**: Log received gifts without deducting from your purchasing quota.
-- **Ahead-of-Schedule Tracker**: If you buy books ahead of schedule, Canelé automatically calculates your exact catch-up month (e.g. *"Normal quota pace catches up in November 2026"*).
-- **Hiatus & No-Book Months**: Schedule recurring annual hiatus months (e.g. June vacation) or one-off skip months where quota does not accumulate.
-- **Quick Actions**: Tap `+1 Bonus` to instantly credit an extra book, or `Skip Month` to take a break.
+### 💱 1. Native Multi-Currency Support (`CAD`, `USD`, `INR`, `JPY`)
+- **Global Currency Options**: Full native support for Canadian Dollar (`CA$`), US Dollar (`$`), Indian Rupee (`₹`), and Japanese Yen (`¥`).
+- **Locale-Aware Formatting**: Accurate currency symbol placement and native numeric rules (e.g. Indian numbering format for `INR`, zero-decimal notation for `JPY`).
+- **Adaptive Symbol Scaling**: Automated scaling and typography rendering for multi-character symbols (`CA$`, `Rs`) across badges, dialogs, and input prefixes.
+- **Primary Collection Currency**: Choose your preferred base currency during the initial 4-step onboarding or change it anytime in **Settings & Data**.
+- **Unified Normalization**: All collection dashboards, quota summaries, and financial outlay metrics automatically normalize into your selected primary currency.
 
-### 🎯 2. Rule Studio & 4-Slot Priority Waterfall
-- **4 Priority Targets**: Automatically fills your home screen with the top 4 books you should buy next.
-- **Drag-and-Drop Prioritization**: Reorder rules dynamically with live slot redistribution.
-- **Pre-Built Strategy Passes**:
-  - 🔄 **Stay Caught Up**: Prioritizes ongoing series where you are only 1 volume behind.
-  - 🔔 **Restock Watchlist**: Bumps hard-to-find books to the front of the line when they come back in stock.
-  - 📊 **Cascading Completion**: Focuses on series closest to 100% completion so you finish your backlog.
-  - ⏩ **Sequential Next Volume**: Always recommends the next unowned volume in sequential order.
-- **Custom Rule Engine**: Build custom recommendation passes filtered by collection status (*Active*, *Wishlist*), missing count, and availability, sorted by date or completion percentage.
+### 📚 2. Series-Level & Default Volume Pricing
+- **Default Price Per Volume**: Specify a default volume price/currency on each series (e.g. $14.99 USD) that automatically serves as the baseline for all unpriced volumes.
+- **Combined Series / Box Set Pricing**: Assign a flat combined bundle price for an entire series or box set when individual volume prices are not applicable.
+- **Creation & Edit Flows**: Easily configure series pricing directly inside the **Add Series Sheet** and **Edit Series Dialog**.
 
-### 📚 3. Series & Volume Library
-- **Fractional & Decimal Volumes**: Full support for decimal volume numbers (*Vol. 11.5* side stories, special chapters, unnumbered omnibus editions).
-- **Fast Series Creation**: Create entire multi-volume series in seconds with auto-generated volume lists (1..N) or add standalone single novels/artbooks.
-- **Granular Volume Tracking**: Track release dates, purchase prices, transaction dates, and custom notes per volume.
-- **Stock Status & Restock Watchlist**: Track whether books are *Available*, *Pre-Order*, *Backorder*, or *Out of Print*.
-- **One-Tap Bulk Marking**: Mark entire volume spans (e.g. *Volumes 1 to 10*) as purchased or unowned with a single tap.
-- **Smart Status Prompts**: Automatic suggestions to move Wishlist series to Active upon buying a book, and Active series to Completed when finished.
+### 📖 3. Granular Volume Price & Acquisition Logging
+- **Volume & Transaction Pricing**: Record purchase prices and individual currency tags when acquiring a volume or editing volume details.
+- **Auto Price Pre-Filling**: Logging an acquisition automatically pre-fills the unowned volume's catalog price or the series default price.
+- **Volume Badges**: Volume checklist tiles now display clear, formatted price and currency badges.
 
-### 📦 4. Universal File Importer (Migrate in Seconds)
-- **One-Click Ingestion**: Import reading lists from **Goodreads CSV**, **StoryGraph CSV**, custom **CSV**, or **Microsoft Excel (.xlsx)** workbooks.
-- **Smart Cleaner**: Automatically strips clutter like `(Light Novel)`, `(Paperback)`, `(Hardcover)`, or Goodreads `#vol` tags.
-- **Interactive Review Screen**: Inspect, edit, and toggle books before committing them to your library.
+### 🔄 4. Resilient Offline Exchange Rate Engine
+- **Baseline Seed Rates**: Bundled offline conversion rates ensure that multi-currency calculations work immediately without requiring an internet connection.
+- **Dual API Redundancy**: Automatically syncs rates with fallback between **Open Exchange Rates** and **Frankfurter API**.
+- **24-Hour Cooldown Protection**: Manual sync button with a built-in rate-limit cooldown indicator to respect external provider quotas and prevent unnecessary network calls.
 
-### 📊 5. Statistics & Library Insights
-- **Overview Metrics**: Total Owned Volumes, Total Series, and Total Financial Outlay.
-- **Quota Velocity**: See regular vs. bonus usage breakdown and historical purchasing speed.
-- **Bought vs. Gifted**: Visual proportional breakdown between self-purchased books and gifts.
-- **Format Distribution**: Breakdown across Light Novels, Manga, Comics, and Novels.
+### 📊 5. Enhanced Financial & Spend Analytics
+- **Total Spend & Average Cost / Volume**: Dedicated section in Statistics displaying lifetime financial investment and true average cost per purchased book (excluding gifts).
+- **Dual Currency Insights**: Series detail screens now display total series spend alongside converted values when prices are logged in secondary currencies.
+- **Exchange Provenance Notice**: Transparent indicator in analytics showing whether baseline offline rates or recently synced live rates were used.
 
-### 💾 6. Local-First Privacy & Auto-Backups
-- **100% Private & Offline**: No cloud servers, no accounts, no tracking. All data remains strictly on your device.
-- **Full State Backup & Restore**: One-tap JSON / `.canele` export and restore.
-- **Spreadsheet Exports**: Export your active collection to standard `.csv` or formatted `.xlsx` workbooks.
-- **Automatic Background Backups**: Automatically saves timestamped rolling backups to your chosen storage directory.
+### 📦 6. Universal Importer & Exporter Enhancements
+- **Multi-Currency Spreadsheets (CSV & Excel)**: Universal collection exports (`.csv` and `.xlsx`) now include dedicated `Total Spent (<Base Currency>)` columns calculated with converted multi-currency values.
+- **Universal Importer Currency Intelligence**: Automatic currency symbol and code detection (`CA$`, `CAD`, `₹`, `INR`, `Rs`, `¥`, `JPY`, `$`, `USD`) when importing custom CSV files.
 
-### 🚀 7. In-App Updates
-- **Seamless GitHub Releases**: Check for updates and download new APK releases directly from GitHub within the app.
+### 🎨 7. UI & UX Refinements
+- **Streamlined Series Header**: Relocated the **Bulk Mark Volumes** action into the series detail app bar overflow menu for a cleaner layout.
+- **Input & Dropdown Components**: Standardized input fields and currency dropdown fields across all modal dialogs.
 
-### 🍮 8. Bespoke Canelé Pastry Design
-- **Warm French Pastry Theme**: Inspired by *canelé de Bordeaux* pastries (Custard Cream, Caramelized Amber, Warm Crust, Deep Caramel).
-- **Light, Dark & System Modes**: Fully styled Material 3 design system.
-- **3x3 Grid Year Selector**: Fast decade-by-decade date picker.
-- **4-Step Setup Wizard**: Step-by-step onboarding to configure your timeline on first launch.
+### 🛡️ 8. Database Schema Migration (v2)
+- **Automatic Migration**: Automated upgrade on startup to schema version 2, cleanly backfilling existing rule configs, series prices, and standardizing transaction records without data loss.
 
 ---
 
 ## 📦 Download & Installation
 
-1. Download **`Canelé-v1.0.0.apk`** from the [GitHub Releases](https://github.com/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner/releases/tag/v1.0.0) page.
+1. Download **`Canelé-v1.1.0.apk`** from the [GitHub Releases](https://github.com/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner/releases/tag/v1.1.0) page.
 2. Open the `.apk` file on your Android device and confirm installation.
 3. Launch Canelé and enjoy tracking your collection!
 

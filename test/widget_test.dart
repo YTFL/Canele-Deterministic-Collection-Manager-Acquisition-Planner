@@ -57,6 +57,10 @@ class MockSeriesNotifier extends StateNotifier<List<Series>> implements SeriesNo
     bool isGift = false,
     List<String> tags = const [],
     Map<String, dynamic> customMetadata = const {},
+    String? currency,
+    double? defaultVolumePrice,
+    String? defaultVolumeCurrency,
+    double? seriesPrice,
   }) async => state.first;
   @override
   Future<void> deleteSeries(String id) async {}
@@ -738,7 +742,7 @@ void main() {
     expect(find.text('Credit'), findsOneWidget);
   });
 
-  testWidgets('SeriesDetailScreen renders Bulk Mark button and opens Bulk Mark sheet', (WidgetTester tester) async {
+  testWidgets('SeriesDetailScreen opens Bulk Mark sheet from popup menu', (WidgetTester tester) async {
     final series = Series(
       id: 'series_1',
       title: 'Overlord',
@@ -766,15 +770,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Verify Bulk Mark button exists in action row
-    expect(find.text('Bulk Mark'), findsOneWidget);
+    // Verify Bulk Mark button does not exist in front action row
+    expect(find.widgetWithText(OutlinedButton, 'Bulk Mark'), findsNothing);
 
-    // Tap Bulk Mark
-    await tester.tap(find.text('Bulk Mark'));
+    // Open popup menu and select Bulk Mark Volumes
+    await tester.tap(find.byKey(const Key('series_detail_appbar_menu')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bulk Mark Volumes'), findsOneWidget);
+    await tester.tap(find.text('Bulk Mark Volumes'));
     await tester.pumpAndSettle();
 
     // Verify modal sheet opened
-    expect(find.text('Bulk Mark Volumes'), findsOneWidget);
     expect(find.text('1. Target Volumes'), findsOneWidget);
     expect(find.text('2. Mark Status As'), findsOneWidget);
     expect(find.text('Purchased'), findsOneWidget);

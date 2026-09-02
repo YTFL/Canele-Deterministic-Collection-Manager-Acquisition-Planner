@@ -27,6 +27,10 @@ class SeriesService {
     int ownedCount = 0,
     bool markOwned = true,
     bool isGift = false,
+    double? seriesPrice,
+    String? currency,
+    double? defaultVolumePrice,
+    String? defaultVolumeCurrency,
     List<String> tags = const [],
     Map<String, dynamic> customMetadata = const {},
   }) async {
@@ -40,6 +44,10 @@ class SeriesService {
       collectionStatus: collectionStatus,
       releaseStatus: effectiveReleaseStatus,
       totalVolumesReleased: totalReleasedVolumes,
+      seriesPrice: seriesPrice,
+      currency: currency,
+      defaultVolumePrice: defaultVolumePrice,
+      defaultVolumeCurrency: defaultVolumeCurrency,
       tags: tags,
       customMetadata: customMetadata,
     );

@@ -8,6 +8,7 @@ class RuleConfig {
   final int manualBonusCount;
   final Map<String, int> customBonusLedger; // e.g. {"2024-07": 1, "2026-03": 2}
   final bool isOnboardingCompleted;
+  final String currency; // CAD, USD, INR, JPY
 
   const RuleConfig({
     this.id = 'global_config',
@@ -19,6 +20,7 @@ class RuleConfig {
     this.manualBonusCount = 0,
     this.customBonusLedger = const {},
     this.isOnboardingCompleted = false,
+    this.currency = 'USD',
   });
 
   RuleConfig copyWith({
@@ -31,6 +33,7 @@ class RuleConfig {
     int? manualBonusCount,
     Map<String, int>? customBonusLedger,
     bool? isOnboardingCompleted,
+    String? currency,
   }) {
     return RuleConfig(
       id: id ?? this.id,
@@ -42,6 +45,7 @@ class RuleConfig {
       manualBonusCount: manualBonusCount ?? this.manualBonusCount,
       customBonusLedger: customBonusLedger ?? this.customBonusLedger,
       isOnboardingCompleted: isOnboardingCompleted ?? this.isOnboardingCompleted,
+      currency: currency ?? this.currency,
     );
   }
 
@@ -56,6 +60,7 @@ class RuleConfig {
       'manualBonusCount': manualBonusCount,
       'customBonusLedger': customBonusLedger,
       'isOnboardingCompleted': isOnboardingCompleted,
+      'currency': currency,
     };
   }
 
@@ -87,6 +92,7 @@ class RuleConfig {
       manualBonusCount: map['manualBonusCount'] as int? ?? 0,
       customBonusLedger: bonusLedger,
       isOnboardingCompleted: map['isOnboardingCompleted'] as bool? ?? false,
+      currency: map['currency'] as String? ?? 'USD',
     );
   }
 
@@ -102,6 +108,7 @@ class RuleConfig {
       manualBonusCount: 0,
       customBonusLedger: const {},
       isOnboardingCompleted: false,
+      currency: 'USD',
     );
   }
 }

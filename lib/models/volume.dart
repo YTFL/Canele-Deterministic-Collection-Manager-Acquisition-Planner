@@ -7,6 +7,8 @@ class Volume {
   final bool isGift;
   final String availability; // available, outOfStock, outOfPrint, announced
   final bool isRestockedWatchlist;
+  final double? price;
+  final String? currency;
   final Map<String, dynamic> customMetadata;
 
   const Volume({
@@ -18,6 +20,8 @@ class Volume {
     this.isGift = false,
     this.availability = 'available',
     this.isRestockedWatchlist = false,
+    this.price,
+    this.currency,
     this.customMetadata = const {},
   });
 
@@ -45,6 +49,10 @@ class Volume {
     bool? isGift,
     String? availability,
     bool? isRestockedWatchlist,
+    double? price,
+    bool clearPrice = false,
+    String? currency,
+    bool clearCurrency = false,
     Map<String, dynamic>? customMetadata,
   }) {
     return Volume(
@@ -56,6 +64,8 @@ class Volume {
       isGift: isGift ?? this.isGift,
       availability: availability ?? this.availability,
       isRestockedWatchlist: isRestockedWatchlist ?? this.isRestockedWatchlist,
+      price: clearPrice ? null : (price ?? this.price),
+      currency: clearCurrency ? null : (currency ?? this.currency),
       customMetadata: customMetadata ?? this.customMetadata,
     );
   }
@@ -70,6 +80,8 @@ class Volume {
       'isGift': isGift,
       'availability': availability,
       'isRestockedWatchlist': isRestockedWatchlist,
+      'price': price,
+      'currency': currency,
       'customMetadata': customMetadata,
     };
   }
@@ -83,6 +95,14 @@ class Volume {
     final rawVolNum = map['volumeNumber'];
     final double volNum = (rawVolNum is num) ? rawVolNum.toDouble() : 1.0;
 
+    final rawPrice = map['price'];
+    final double? parsedPrice = (rawPrice is num) ? rawPrice.toDouble() : null;
+
+    final rawCurrency = map['currency'];
+    final String? parsedCurrency = (rawCurrency is String && rawCurrency.isNotEmpty)
+        ? rawCurrency.toUpperCase().trim()
+        : null;
+
     return Volume(
       id: map['id'] as String? ?? '',
       seriesId: map['seriesId'] as String? ?? '',
@@ -92,6 +112,8 @@ class Volume {
       isGift: map['isGift'] as bool? ?? false,
       availability: map['availability'] as String? ?? 'available',
       isRestockedWatchlist: map['isRestockedWatchlist'] as bool? ?? false,
+      price: parsedPrice,
+      currency: parsedCurrency,
       customMetadata: Map<String, dynamic>.from(map['customMetadata'] as Map? ?? {}),
     );
   }

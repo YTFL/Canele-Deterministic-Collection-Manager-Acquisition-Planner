@@ -4,6 +4,7 @@ import '../models/volume.dart';
 import '../models/purchase_transaction.dart';
 import 'database_provider.dart';
 import 'quota_provider.dart';
+import '../core/utils/currency_helper.dart';
 
 import '../services/series_service.dart';
 
@@ -40,6 +41,10 @@ class SeriesNotifier extends StateNotifier<List<Series>> {
     int ownedCount = 0,
     bool markOwned = true,
     bool isGift = false,
+    double? seriesPrice,
+    String? currency,
+    double? defaultVolumePrice,
+    String? defaultVolumeCurrency,
     List<String> tags = const [],
     Map<String, dynamic> customMetadata = const {},
   }) async {
@@ -53,6 +58,10 @@ class SeriesNotifier extends StateNotifier<List<Series>> {
       ownedCount: ownedCount,
       markOwned: markOwned,
       isGift: isGift,
+      seriesPrice: seriesPrice,
+      currency: currency,
+      defaultVolumePrice: defaultVolumePrice,
+      defaultVolumeCurrency: defaultVolumeCurrency,
       tags: tags,
       customMetadata: customMetadata,
     );
@@ -101,7 +110,8 @@ class SeriesNotifier extends StateNotifier<List<Series>> {
             volumeId: v.id,
             purchaseDate: now,
             quotaBucket: quotaSummary.suggestedAutoBucket,
-            price: 0.0,
+            price: v.price ?? 0.0,
+            currency: v.currency,
             notes: 'Marked as completed',
           ));
         }
@@ -201,7 +211,8 @@ class VolumesNotifier extends StateNotifier<List<Volume>> {
           volumeId: volume.id,
           purchaseDate: DateTime.now(),
           quotaBucket: bucket,
-          price: 0.0,
+          price: newGift ? 0.0 : (volume.price ?? 0.0),
+          currency: volume.currency,
           notes: 'Quick toggled ownership',
         );
         await _ref.read(transactionRepositoryProvider).save(tx);
@@ -247,7 +258,8 @@ class VolumesNotifier extends StateNotifier<List<Volume>> {
             volumeId: v.id,
             purchaseDate: now,
             quotaBucket: bucket,
-            price: 0.0,
+            price: isGift ? 0.0 : (v.price ?? 0.0),
+            currency: v.currency,
             notes: isGift ? 'Bulk marked as gift' : 'Bulk marked as purchased',
           ));
         } else if (existingTx.quotaBucket == 'gift' && !isGift) {
@@ -333,6 +345,7 @@ class SeriesStats {
   final int totalOwned;
   final int totalAnnounced;
   final double completionPercentage;
+  final double totalSpent;
   final Volume? nextMissingVolume;
 
   SeriesStats({
@@ -340,6 +353,7 @@ class SeriesStats {
     required this.totalOwned,
     required this.totalAnnounced,
     required this.completionPercentage,
+    this.totalSpent = 0.0,
     this.nextMissingVolume,
   });
 }
@@ -356,11 +370,66 @@ final seriesStatsProvider = Provider.family<SeriesStats, String>((ref, seriesId)
 
   final completion = released.isEmpty ? (owned.isNotEmpty ? 1.0 : 0.0) : (owned.length / released.length);
 
+  final allTxs = ref.watch(transactionsNotifierProvider);
+  final allSeries = ref.watch(seriesNotifierProvider);
+  final config = ref.watch(ruleConfigNotifierProvider);
+  final exchangeRates = ref.watch(exchangeRatesNotifierProvider);
+
+  final series = allSeries.cast<Series?>().firstWhere(
+        (s) => s?.id == seriesId,
+        orElse: () => null,
+      );
+
+  double spent = 0.0;
+  if (series != null && series.seriesPrice != null && series.seriesPrice! > 0) {
+    if (owned.any((v) => !v.isGift)) {
+      spent = CurrencyHelper.convert(
+        amount: series.seriesPrice!,
+        fromCurrency: series.currency ?? config.currency,
+        toCurrency: config.currency,
+        rates: exchangeRates,
+      );
+    }
+  } else {
+    for (final v in allVolumes) {
+      if (!v.isOwned || v.isGift) continue;
+      final txs = allTxs.where((t) => t.volumeId == v.id && t.quotaBucket != 'gift').toList();
+      if (txs.isNotEmpty && txs.first.price > 0) {
+        final tx = txs.first;
+        final txCurr = tx.currency ?? config.currency;
+        spent += CurrencyHelper.convert(
+          amount: tx.price,
+          fromCurrency: txCurr,
+          toCurrency: config.currency,
+          rates: exchangeRates,
+        );
+      } else if (v.price != null && v.price! > 0) {
+        final volCurr = v.currency ?? config.currency;
+        spent += CurrencyHelper.convert(
+          amount: v.price!,
+          fromCurrency: volCurr,
+          toCurrency: config.currency,
+          rates: exchangeRates,
+        );
+      } else {
+        final defPrice = series?.defaultVolumePrice ?? CurrencyHelper.defaultVolumePrice;
+        final defCurr = series?.defaultVolumeCurrency ?? CurrencyHelper.defaultVolumeCurrency;
+        spent += CurrencyHelper.convert(
+          amount: defPrice,
+          fromCurrency: defCurr,
+          toCurrency: config.currency,
+          rates: exchangeRates,
+        );
+      }
+    }
+  }
+
   return SeriesStats(
     totalReleased: released.length,
     totalOwned: owned.length,
     totalAnnounced: announced.length,
     completionPercentage: completion,
+    totalSpent: spent,
     nextMissingVolume: missing.isNotEmpty ? missing.first : null,
   );
 });
@@ -387,13 +456,73 @@ final dashboardMetricsProvider = Provider<DashboardHeaderMetrics>((ref) {
   final volumes = ref.watch(volumesNotifierProvider);
   final series = ref.watch(seriesNotifierProvider);
   final transactions = ref.watch(transactionsNotifierProvider);
+  final config = ref.watch(ruleConfigNotifierProvider);
+  final exchangeRates = ref.watch(exchangeRatesNotifierProvider);
 
   final totalOwned = volumes.where((v) => v.isOwned).length;
   final totalGifted = volumes.where((v) => v.isOwned && v.isGift).length;
   final totalBought = totalOwned - totalGifted;
   final activeSeriesCount = series.where((s) => s.status == 'active').length;
   final totalSeriesCount = series.length;
-  final totalSpent = transactions.fold<double>(0.0, (acc, t) => acc + t.price);
+
+  final purchasedSeriesIds = volumes.where((v) => v.isOwned && !v.isGift).map((v) => v.seriesId).toSet();
+  final seriesWithPrice = series
+      .where((s) => s.seriesPrice != null && s.seriesPrice! > 0 && purchasedSeriesIds.contains(s.id))
+      .toList();
+  final seriesWithPriceIds = seriesWithPrice.map((s) => s.id).toSet();
+  final volumeIdsWithSeriesPrice = volumes
+      .where((v) => seriesWithPriceIds.contains(v.seriesId))
+      .map((v) => v.id)
+      .toSet();
+
+  double totalSpent = 0.0;
+
+  // 1. Add spend from series-level bundle prices (only when purchased volumes exist)
+  for (final s in seriesWithPrice) {
+    totalSpent += CurrencyHelper.convert(
+      amount: s.seriesPrice!,
+      fromCurrency: s.currency ?? config.currency,
+      toCurrency: config.currency,
+      rates: exchangeRates,
+    );
+  }
+
+  // 2. Add spend for volumes not covered by a series-level bundle price
+  final seriesMap = {for (final s in series) s.id: s};
+  for (final v in volumes) {
+    if (!v.isOwned || v.isGift) continue;
+    if (volumeIdsWithSeriesPrice.contains(v.id)) continue;
+
+    final s = seriesMap[v.seriesId];
+    final txs = transactions.where((t) => t.volumeId == v.id && t.quotaBucket != 'gift').toList();
+    if (txs.isNotEmpty && txs.first.price > 0) {
+      final tx = txs.first;
+      final txCurr = tx.currency ?? config.currency;
+      totalSpent += CurrencyHelper.convert(
+        amount: tx.price,
+        fromCurrency: txCurr,
+        toCurrency: config.currency,
+        rates: exchangeRates,
+      );
+    } else if (v.price != null && v.price! > 0) {
+      final volCurr = v.currency ?? config.currency;
+      totalSpent += CurrencyHelper.convert(
+        amount: v.price!,
+        fromCurrency: volCurr,
+        toCurrency: config.currency,
+        rates: exchangeRates,
+      );
+    } else {
+      final defPrice = s?.defaultVolumePrice ?? CurrencyHelper.defaultVolumePrice;
+      final defCurr = s?.defaultVolumeCurrency ?? CurrencyHelper.defaultVolumeCurrency;
+      totalSpent += CurrencyHelper.convert(
+        amount: defPrice,
+        fromCurrency: defCurr,
+        toCurrency: config.currency,
+        rates: exchangeRates,
+      );
+    }
+  }
 
   return DashboardHeaderMetrics(
     totalOwned: totalOwned,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/currency_helper.dart';
 import '../../core/utils/date_formatter.dart';
 import '../../core/utils/uuid_generator.dart';
 import '../../models/series.dart';
@@ -60,6 +61,8 @@ class _LogTransactionSheetState extends ConsumerState<LogTransactionSheet> {
   Volume? _selectedVolume;
   final DateTime _purchaseDate = DateTime.now();
   bool _isGift = false; // Toggle between Purchased (false) and Gift (true)
+  String? _selectedCurrency;
+  final _priceController = TextEditingController();
   final _notesController = TextEditingController();
 
   @override
@@ -67,13 +70,27 @@ class _LogTransactionSheetState extends ConsumerState<LogTransactionSheet> {
     super.initState();
     _selectedSeries = widget.initialSeries;
     _selectedVolume = widget.initialVolume;
-    if (_selectedVolume != null && _selectedVolume!.isGift) {
-      _isGift = true;
+    if (_selectedVolume != null) {
+      if (_selectedVolume!.isGift) {
+        _isGift = true;
+      }
+      _selectedCurrency = _selectedVolume!.currency ?? _selectedSeries?.defaultVolumeCurrency ?? CurrencyHelper.defaultVolumeCurrency;
+      if (_selectedVolume!.price != null && _selectedVolume!.price! > 0) {
+        _priceController.text = _selectedVolume!.price!.toStringAsFixed(
+          _selectedVolume!.price! == _selectedVolume!.price!.roundToDouble() ? 0 : 2,
+        );
+      } else {
+        final defPrice = _selectedSeries?.defaultVolumePrice ?? CurrencyHelper.defaultVolumePrice;
+        _priceController.text = defPrice.toStringAsFixed(
+          defPrice == defPrice.roundToDouble() ? 0 : 2,
+        );
+      }
     }
   }
 
   @override
   void dispose() {
+    _priceController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -88,14 +105,19 @@ class _LogTransactionSheetState extends ConsumerState<LogTransactionSheet> {
       return;
     }
 
+    final config = ref.read(ruleConfigNotifierProvider);
     final quotaSummary = ref.read(quotaProvider);
     final bucket = _isGift ? 'gift' : quotaSummary.suggestedAutoBucket;
+    final priceVal = _isGift ? 0.0 : CurrencyHelper.parsePrice(_priceController.text.trim());
+    final effectiveCurrency = _selectedCurrency ?? config.currency;
 
     // 1. Update Volume to Owned
     final updatedVol = _selectedVolume!.copyWith(
       isOwned: true,
       isGift: _isGift,
       isRestockedWatchlist: false,
+      price: priceVal > 0 ? priceVal : _selectedVolume!.price,
+      currency: priceVal > 0 ? effectiveCurrency : (_selectedVolume!.currency ?? effectiveCurrency),
     );
     await ref.read(volumesNotifierProvider.notifier).saveVolume(updatedVol);
 
@@ -105,7 +127,8 @@ class _LogTransactionSheetState extends ConsumerState<LogTransactionSheet> {
       volumeId: _selectedVolume!.id,
       purchaseDate: _purchaseDate,
       quotaBucket: bucket,
-      price: 0.0,
+      price: priceVal,
+      currency: effectiveCurrency,
       notes: _notesController.text.trim(),
     );
     await ref.read(transactionsNotifierProvider.notifier).saveTransaction(tx);
@@ -134,6 +157,7 @@ class _LogTransactionSheetState extends ConsumerState<LogTransactionSheet> {
     final allSeries = ref.watch(seriesNotifierProvider);
     final allVolumes = ref.watch(volumesNotifierProvider);
     final quota = ref.watch(quotaProvider);
+    final config = ref.watch(ruleConfigNotifierProvider);
 
     // Filter available unowned volumes for selected series
     List<Volume> seriesVolumes = [];
@@ -245,7 +269,26 @@ class _LogTransactionSheetState extends ConsumerState<LogTransactionSheet> {
                       ),
                     );
                   }).toList(),
-                  onChanged: (v) => setState(() => _selectedVolume = v),
+                  onChanged: (v) {
+                    setState(() {
+                      _selectedVolume = v;
+                      if (v != null) {
+                        if (v.price != null && v.price! > 0) {
+                          _priceController.text = v.price!.toStringAsFixed(
+                            v.price! == v.price!.roundToDouble() ? 0 : 2,
+                          );
+                          if (v.currency != null) _selectedCurrency = v.currency;
+                        } else {
+                          final defPrice = _selectedSeries?.defaultVolumePrice ?? CurrencyHelper.defaultVolumePrice;
+                          final defCurr = _selectedSeries?.defaultVolumeCurrency ?? CurrencyHelper.defaultVolumeCurrency;
+                          _priceController.text = defPrice.toStringAsFixed(
+                            defPrice == defPrice.roundToDouble() ? 0 : 2,
+                          );
+                          _selectedCurrency = defCurr;
+                        }
+                      }
+                    });
+                  },
                 ),
               const SizedBox(height: 16),
             ] else if (_selectedVolume != null) ...[
@@ -373,6 +416,48 @@ class _LogTransactionSheetState extends ConsumerState<LogTransactionSheet> {
               ),
             ),
             const SizedBox(height: 16),
+
+            // Price (Only for purchased acquisitions)
+            if (!_isGift) ...[
+              Text('Price (Optional)', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: TextFormField(
+                      controller: _priceController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        hintText: '0.00',
+                        prefixIcon: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                          child: CurrencySymbolText(
+                            currencyCode: _selectedCurrency ?? config.currency,
+                            baseFontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: CurrencyDropdownField(
+                      value: _selectedCurrency ?? config.currency,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() => _selectedCurrency = val);
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
 
             // Notes
             Text('Notes (Optional)', style: theme.textTheme.titleMedium),

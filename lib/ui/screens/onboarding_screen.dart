@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/currency_helper.dart';
 import '../../core/utils/date_formatter.dart';
 import '../../core/utils/uuid_generator.dart';
 import '../../models/rule_config.dart';
@@ -26,6 +27,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   // Step 1 State: Timeline Start & Cadence
   late DateTime _startDate;
   int _regularPerMonth = 1;
+  String _currency = 'USD';
 
   // Step 2 State: Recurring Bonus Months & Recurring No-Book Months (Optional)
   final Set<int> _selectedBonusMonths = {};
@@ -111,6 +113,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       customBonusLedger: _customBonusLedger,
       manualBonusCount: 0,
       isOnboardingCompleted: true,
+      currency: _currency,
     );
 
     await ref.read(ruleConfigNotifierProvider.notifier).updateConfig(config);
@@ -378,6 +381,71 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     icon: const Icon(Icons.add_circle_outline),
                     onPressed: () => setState(() => _regularPerMonth++),
                   ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        CaneleCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Preferred Currency', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 2),
+              Text('Used for price tracking and spend analytics', style: theme.textTheme.bodySmall),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  for (final opt in CurrencyHelper.supportedCurrencies) ...[
+                    if (opt != CurrencyHelper.supportedCurrencies.first) const SizedBox(width: 6),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => setState(() => _currency = opt.code),
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
+                          decoration: BoxDecoration(
+                            color: _currency == opt.code
+                                ? AppColors.caramelizedAmber.withValues(alpha: isDark ? 0.25 : 0.15)
+                                : (isDark ? AppColors.darkPastryCardElevated : AppColors.pastryCrustLight),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: _currency == opt.code
+                                  ? AppColors.caramelizedAmber
+                                  : (isDark ? AppColors.darkPastryBorder : AppColors.pastryCrustBorder),
+                              width: _currency == opt.code ? 1.5 : 1.0,
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              CurrencySymbolText(
+                                currencyCode: opt.code,
+                                baseFontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: _currency == opt.code
+                                    ? (isDark ? AppColors.caramelizedAmberLight : AppColors.caramelizedAmber)
+                                    : (isDark ? AppColors.darkTextPrimary : AppColors.deepCaramel),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                opt.code,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: _currency == opt.code
+                                      ? (isDark ? AppColors.caramelizedAmberLight : AppColors.caramelizedAmber)
+                                      : (isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ],

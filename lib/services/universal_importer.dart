@@ -10,6 +10,7 @@ import '../models/volume.dart';
 import '../models/purchase_transaction.dart';
 import '../models/rule_config.dart';
 import '../models/rule_model.dart';
+import '../core/utils/currency_helper.dart';
 import 'backup_service.dart';
 
 enum RestoreMode {
@@ -614,9 +615,10 @@ class UniversalImporter {
       }
 
       double price = 0.0;
+      String? currency;
       if (priceIdx != -1 && priceIdx < row.length) {
-        final pStr = row[priceIdx]?.toString().replaceAll('\$', '').trim() ?? '';
-        price = double.tryParse(pStr) ?? 0.0;
+        price = CurrencyHelper.parsePrice(row[priceIdx]);
+        currency = CurrencyHelper.detectCurrency(row[priceIdx]);
       }
 
       items.add(ImportItem(
@@ -627,6 +629,7 @@ class UniversalImporter {
         status: status,
         isOwned: isOwned,
         price: price,
+        currency: currency,
         sourceFormat: 'csv',
       ));
     }

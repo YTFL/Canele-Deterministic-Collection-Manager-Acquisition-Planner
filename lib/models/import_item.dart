@@ -8,6 +8,7 @@ class ImportItem {
   final bool isGift;
   final String availability; // available, outOfStock, outOfPrint, announced
   final double price;
+  final String? currency;
   final DateTime? releaseOrPurchaseDate;
   final List<String> tags;
   final String sourceFormat; // json, csv, xlsx, goodreads, storygraph
@@ -23,6 +24,7 @@ class ImportItem {
     this.isGift = false,
     this.availability = 'available',
     this.price = 0.0,
+    this.currency,
     this.releaseOrPurchaseDate,
     this.tags = const [],
     this.sourceFormat = 'csv',
@@ -39,6 +41,7 @@ class ImportItem {
     bool? isGift,
     String? availability,
     double? price,
+    String? currency,
     DateTime? releaseOrPurchaseDate,
     List<String>? tags,
     String? sourceFormat,
@@ -54,6 +57,7 @@ class ImportItem {
       isGift: isGift ?? this.isGift,
       availability: availability ?? this.availability,
       price: price ?? this.price,
+      currency: currency ?? this.currency,
       releaseOrPurchaseDate: releaseOrPurchaseDate ?? this.releaseOrPurchaseDate,
       tags: tags ?? this.tags,
       sourceFormat: sourceFormat ?? this.sourceFormat,

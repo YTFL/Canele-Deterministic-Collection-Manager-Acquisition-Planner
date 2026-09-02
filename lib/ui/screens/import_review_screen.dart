@@ -103,6 +103,8 @@ class _ImportReviewScreenState extends ConsumerState<ImportReviewScreen> {
           isOwned: vItem.isOwned,
           isGift: vItem.isGift,
           availability: vItem.availability,
+          price: vItem.price > 0 ? vItem.price : null,
+          currency: vItem.currency,
         );
         newVolumes.add(vol);
         volumesCreated++;
@@ -115,6 +117,7 @@ class _ImportReviewScreenState extends ConsumerState<ImportReviewScreen> {
             purchaseDate: vItem.releaseOrPurchaseDate ?? DateTime.now(),
             quotaBucket: vItem.isGift ? 'gift' : quotaSummary.suggestedAutoBucket,
             price: vItem.price,
+            currency: vItem.currency,
             notes: 'Imported from ${widget.sourceName}',
           );
           await ref.read(transactionsNotifierProvider.notifier).saveTransaction(tx);

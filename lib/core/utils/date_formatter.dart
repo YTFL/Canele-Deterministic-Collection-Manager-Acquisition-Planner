@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import 'currency_helper.dart';
 
 class DateFormatter {
   static final DateFormat _displayFormat = DateFormat('MMM d, yyyy');
@@ -33,9 +34,8 @@ class DateFormatter {
     return DateTime.now();
   }
 
-  static String formatCurrency(double amount) {
-    final format = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
-    return format.format(amount);
+  static String formatCurrency(double amount, [String currencyCode = 'USD']) {
+    return CurrencyHelper.format(amount, currencyCode: currencyCode);
   }
 
   static String formatVolumeNumber(double number) {

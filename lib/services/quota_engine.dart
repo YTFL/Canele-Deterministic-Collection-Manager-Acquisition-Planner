@@ -1,7 +1,11 @@
 import 'dart:math';
 import '../models/rule_config.dart';
 import '../models/purchase_transaction.dart';
+import '../models/series.dart';
+import '../models/volume.dart';
 import '../core/utils/date_formatter.dart';
+import '../core/utils/currency_helper.dart';
+import 'exchange_rate_service.dart';
 
 class QuotaSummary {
   final int regularExpected;
@@ -19,6 +23,7 @@ class QuotaSummary {
   final String? projectedCatchUpKey; // e.g. "2026-11"
   final int monthsAhead;
   final List<String> activeMonthKeys;
+  final String suggestedAutoBucket; // Auto-fill bucket for new purchases: 'regular' | 'bonus' | 'gift'
 
   const QuotaSummary({
     required this.regularExpected,
@@ -36,12 +41,13 @@ class QuotaSummary {
     this.projectedCatchUpKey,
     this.monthsAhead = 0,
     required this.activeMonthKeys,
+    this.suggestedAutoBucket = 'regular',
   });
 
   int get regularRemainingDisplay => regularRemaining > 0 ? regularRemaining : 0;
   int get bonusRemainingDisplay => bonusRemaining > 0 ? bonusRemaining : 0;
 
-  String get suggestedAutoBucket {
+  String get quotaAllocationPreview {
     if (regularRemaining > 0) {
       return 'regular';
     } else {
@@ -64,7 +70,10 @@ class QuotaEngine {
   static QuotaSummary calculate({
     required RuleConfig config,
     required List<PurchaseTransaction> transactions,
+    List<Series>? allSeries,
+    List<Volume>? allVolumes,
     DateTime? asOfDate,
+    ExchangeRates? exchangeRates,
   }) {
     final now = asOfDate ?? DateTime.now();
     final start = config.timelineStartDate;
@@ -110,13 +119,91 @@ class QuotaEngine {
 
     final bonusExpected = recurringBonusMonthsOccurred + customLedgerBonusCount + config.manualBonusCount;
 
-    // Transactions breakdown
+    // Transactions breakdown with multi-currency and seriesPrice normalization
     int totalBought = 0;
     int giftsCount = 0;
     double totalSpent = 0.0;
 
+    final purchasedSeriesIds = (allVolumes != null)
+        ? allVolumes.where((v) => v.isOwned && !v.isGift).map((v) => v.seriesId).toSet()
+        : <String>{};
+    final seriesWithPrice = allSeries
+            ?.where((s) => s.seriesPrice != null && s.seriesPrice! > 0 && purchasedSeriesIds.contains(s.id))
+            .toList() ??
+        [];
+    final seriesWithPriceIds = seriesWithPrice.map((s) => s.id).toSet();
+    final volumeIdsWithSeriesPrice = (allVolumes != null && seriesWithPriceIds.isNotEmpty)
+        ? allVolumes
+            .where((v) => seriesWithPriceIds.contains(v.seriesId))
+            .map((v) => v.id)
+            .toSet()
+        : <String>{};
+
+    // Add spend from series-level bundle prices (only for series with purchased volumes)
+    for (final s in seriesWithPrice) {
+      final normalizedPrice = CurrencyHelper.convert(
+        amount: s.seriesPrice!,
+        fromCurrency: s.currency ?? config.currency,
+        toCurrency: config.currency,
+        rates: exchangeRates,
+      );
+      totalSpent += normalizedPrice;
+    }
+
+    final seriesMap = allSeries != null ? {for (final s in allSeries) s.id: s} : <String, Series>{};
+    final txMap = {for (final t in transactions) t.volumeId: t};
+
+    if (allVolumes != null) {
+      for (final v in allVolumes) {
+        if (!v.isOwned || v.isGift) continue;
+        if (volumeIdsWithSeriesPrice.contains(v.id)) continue;
+
+        final s = seriesMap[v.seriesId];
+        final t = txMap[v.id];
+
+        if (t != null && t.price > 0) {
+          final txCurrency = t.currency ?? config.currency;
+          totalSpent += CurrencyHelper.convert(
+            amount: t.price,
+            fromCurrency: txCurrency,
+            toCurrency: config.currency,
+            rates: exchangeRates,
+          );
+        } else if (v.price != null && v.price! > 0) {
+          final volCurrency = v.currency ?? config.currency;
+          totalSpent += CurrencyHelper.convert(
+            amount: v.price!,
+            fromCurrency: volCurrency,
+            toCurrency: config.currency,
+            rates: exchangeRates,
+          );
+        } else {
+          final defPrice = s?.defaultVolumePrice ?? CurrencyHelper.defaultVolumePrice;
+          final defCurr = s?.defaultVolumeCurrency ?? CurrencyHelper.defaultVolumeCurrency;
+          totalSpent += CurrencyHelper.convert(
+            amount: defPrice,
+            fromCurrency: defCurr,
+            toCurrency: config.currency,
+            rates: exchangeRates,
+          );
+        }
+      }
+    } else {
+      // Fallback if allVolumes not passed
+      for (final t in transactions) {
+        if (t.price > 0 && !volumeIdsWithSeriesPrice.contains(t.volumeId)) {
+          final txCurrency = t.currency ?? config.currency;
+          totalSpent += CurrencyHelper.convert(
+            amount: t.price,
+            fromCurrency: txCurrency,
+            toCurrency: config.currency,
+            rates: exchangeRates,
+          );
+        }
+      }
+    }
+
     for (final t in transactions) {
-      totalSpent += t.price;
       if (t.quotaBucket == 'gift') {
         giftsCount++;
       } else {
@@ -179,6 +266,8 @@ class QuotaEngine {
       monthsAhead = futureActiveMonthsCount;
     }
 
+    final suggestedAutoBucket = regularRemaining > 0 ? 'regular' : 'bonus';
+
     return QuotaSummary(
       regularExpected: regularExpected,
       regularBought: regularBought,
@@ -195,6 +284,7 @@ class QuotaEngine {
       projectedCatchUpKey: projectedCatchUpKey,
       monthsAhead: monthsAhead,
       activeMonthKeys: activeMonthKeys,
+      suggestedAutoBucket: suggestedAutoBucket,
     );
   }
 }

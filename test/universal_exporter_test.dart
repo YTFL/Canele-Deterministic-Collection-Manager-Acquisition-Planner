@@ -84,7 +84,7 @@ void main() {
         volumesList: [v1, v2, v3],
       );
 
-      expect(csvStr, contains('Title,Author,Format,Type,Total Volumes,Owned Volumes,Status,Tags'));
+      expect(csvStr, contains('Title,Author,Format,Type,Total Volumes,Owned Volumes,Total Spent (USD),Status,Tags'));
       // Title with comma should be properly quoted
       expect(csvStr, contains('"86 - Eighty-Six, Vol. 1"'));
       expect(csvStr, contains('Asato Asato'));

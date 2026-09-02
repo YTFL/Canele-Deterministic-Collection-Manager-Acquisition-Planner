@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2026-09-02
+
+### Added
+
+#### 💱 Multi-Currency Tracking & Live Offline Conversion
+- **Global Currency Options**:
+  - Full native support for **CAD** (`CA$`), **USD** (`$`), **INR** (`₹`), and **JPY** (`¥`).
+  - Region-aware number and currency formatting (e.g. Indian Lakh system for `INR`, zero-decimal notation for `JPY`).
+  - Reusable UI component system (`CurrencySymbolBox`, `CurrencySymbolText`, `CurrencyDropdownField`) with automatic scaling for multi-character symbols like `CA$`.
+- **Primary Collection Currency Preference**:
+  - Configure your preferred base currency during onboarding or anytime in **Settings & Data**.
+  - All collection statistics, quota summaries, and financial outlays normalize automatically to your chosen primary currency.
+- **Series-Level Pricing & Default Volume Price**:
+  - **Default Price Per Volume**: Set a default volume price/currency per series (e.g. $14.99 USD) used as fallback for all unpriced volumes.
+  - **Combined Series / Bundle Price**: Option to assign a flat total price for an entire box set or series bundle instead of pricing individual volumes.
+  - Configurable directly from the **Add Series Sheet** and **Edit Series Dialog**.
+- **Smart Acquisition & Volume Price Logging**:
+  - Record purchase prices in any supported currency directly when acquiring a volume or editing volume details.
+  - Automatic price pre-filling in the acquisition sheet when logging unowned volumes with known catalog prices or series defaults.
+  - Visual currency badges directly on volume checklist tiles.
+- **Resilient Offline Exchange Rate Engine**:
+  - Ships with built-in baseline seed conversion rates (`USD`, `CAD`, `INR`, `JPY`) for 100% offline usage.
+  - Automatic fallback between primary (**Open Exchange Rates**) and secondary (**Frankfurter API**) rate providers.
+  - On-demand manual sync button in Settings with a built-in 24-hour rate limit cooldown to prevent unnecessary network overhead and respect external API quotas.
+
+#### 📊 Enhanced Financial & Spend Analytics
+- **Total Spend & Average Cost / Volume**:
+  - Dedicated financial insights section in Statistics displaying total lifetime outlay normalized across multi-currency purchases.
+  - Calculates true average investment per purchased volume (excluding gifted volumes).
+  - Series detail cards now display detailed spend calculations and dual-currency conversion tooltips.
+  - Detailed sync provenance footer informing whether offline seed rates or recently synced live rates were used for conversion.
+- **Multi-Currency Spreadsheets (CSV & Excel)**:
+  - Universal collection exports (`.csv` and `.xlsx`) now include dedicated `Total Spent (<Base Currency>)` columns with converted cost calculations per series.
+- **Universal Importer Currency Intelligence**:
+  - Automatic currency symbol and code detection (`CA$`, `CAD`, `₹`, `INR`, `Rs`, `¥`, `JPY`, `$`, `USD`) when importing custom CSV files.
+
+#### 🎨 UI & Workflow Improvements
+- **Series Detail Actions**:
+  - Relocated **Bulk Mark Volumes** into the series detail app bar overflow menu for a cleaner, streamlined header layout.
+- **Smart Acquisition Sheet Layout**:
+  - Improved layout pairing input fields with dedicated currency dropdown pickers.
+
+#### 🛡️ Database Schema Migration (v2)
+- **Automatic Migration Engine**:
+  - Non-destructive automated migration from schema version 1 to version 2 on app startup.
+  - Seamlessly backfills default currency fields on existing rule configurations, normalizes transactions, and preserves data integrity.
+
+---
+
 ## [1.0.0] - 2026-09-01
 
 ### Added
@@ -111,4 +160,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.1.0]: https://github.com/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner/releases/tag/v1.1.0
 [1.0.0]: https://github.com/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner/releases/tag/v1.0.0

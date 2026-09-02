@@ -10,7 +10,10 @@ import '../core/database/database_migrator.dart';
 import '../core/database/hive_boxes.dart';
 import '../models/series.dart';
 import '../models/volume.dart';
+import '../models/purchase_transaction.dart';
 import '../models/rule_config.dart';
+import '../core/utils/currency_helper.dart';
+import 'exchange_rate_service.dart';
 
 class UniversalExporter {
   /// Lossless Full Database Export as JSON string
@@ -45,14 +48,25 @@ class UniversalExporter {
   }) {
     final allSeries = seriesList ??
         HiveBoxes.seriesBox.values
+            .whereType<Map>()
             .map((e) => Series.fromMap(e))
             .toList()
           ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
 
     final allVolumes = volumesList ??
         HiveBoxes.volumesBox.values
+            .whereType<Map>()
             .map((e) => Volume.fromMap(e))
             .toList();
+
+    final allTxs = HiveBoxes.transactionsBox.values
+        .whereType<Map>()
+        .map((e) => PurchaseTransaction.fromMap(e))
+        .toList();
+
+    final ruleConfigMap = HiveBoxes.ruleConfigBox.get('global_config');
+    final baseCurrency = ruleConfigMap is Map ? (ruleConfigMap['currency']?.toString() ?? 'USD') : 'USD';
+    final exchangeRates = ExchangeRateService.loadFromStorage();
 
     final rows = <List<dynamic>>[];
     // CSV Header
@@ -63,12 +77,57 @@ class UniversalExporter {
       'Type',
       'Total Volumes',
       'Owned Volumes',
+      'Total Spent ($baseCurrency)',
       'Status',
       'Tags',
     ]);
 
     for (final s in allSeries) {
       final sVolumes = allVolumes.where((v) => v.seriesId == s.id).toList();
+      double sSpent = 0.0;
+      final purchasedVolumes = sVolumes.where((v) => v.isOwned && !v.isGift).toList();
+      if (s.seriesPrice != null && s.seriesPrice! > 0) {
+        if (purchasedVolumes.isNotEmpty) {
+          sSpent = CurrencyHelper.convert(
+            amount: s.seriesPrice!,
+            fromCurrency: s.currency ?? baseCurrency,
+            toCurrency: baseCurrency,
+            rates: exchangeRates,
+          );
+        }
+      } else {
+        for (final v in sVolumes) {
+          if (!v.isOwned || v.isGift) continue;
+          final txs = allTxs.where((t) => t.volumeId == v.id && t.quotaBucket != 'gift').toList();
+          if (txs.isNotEmpty && txs.first.price > 0) {
+            final tx = txs.first;
+            final txCurr = tx.currency ?? baseCurrency;
+            sSpent += CurrencyHelper.convert(
+              amount: tx.price,
+              fromCurrency: txCurr,
+              toCurrency: baseCurrency,
+              rates: exchangeRates,
+            );
+          } else if (v.price != null && v.price! > 0) {
+            final volCurr = v.currency ?? baseCurrency;
+            sSpent += CurrencyHelper.convert(
+              amount: v.price!,
+              fromCurrency: volCurr,
+              toCurrency: baseCurrency,
+              rates: exchangeRates,
+            );
+          } else {
+            final defPrice = s.defaultVolumePrice ?? CurrencyHelper.defaultVolumePrice;
+            final defCurr = s.defaultVolumeCurrency ?? CurrencyHelper.defaultVolumeCurrency;
+            sSpent += CurrencyHelper.convert(
+              amount: defPrice,
+              fromCurrency: defCurr,
+              toCurrency: baseCurrency,
+              rates: exchangeRates,
+            );
+          }
+        }
+      }
       final ownedCount = sVolumes.where((v) => v.isOwned).length;
       final totalCount = s.totalVolumesReleased ?? sVolumes.length;
       final author = s.customMetadata['author']?.toString() ?? '';
@@ -83,6 +142,7 @@ class UniversalExporter {
         typeLabel,
         totalCount,
         ownedCount,
+        sSpent > 0 ? sSpent.toStringAsFixed(2) : '0.00',
         s.collectionStatus,
         tagsStr,
       ]);
@@ -98,14 +158,25 @@ class UniversalExporter {
   }) {
     final allSeries = seriesList ??
         HiveBoxes.seriesBox.values
+            .whereType<Map>()
             .map((e) => Series.fromMap(e))
             .toList()
           ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
 
     final allVolumes = volumesList ??
         HiveBoxes.volumesBox.values
+            .whereType<Map>()
             .map((e) => Volume.fromMap(e))
             .toList();
+
+    final allTxs = HiveBoxes.transactionsBox.values
+        .whereType<Map>()
+        .map((e) => PurchaseTransaction.fromMap(e))
+        .toList();
+
+    final ruleConfigMap = HiveBoxes.ruleConfigBox.get('global_config');
+    final baseCurrency = ruleConfigMap is Map ? (ruleConfigMap['currency']?.toString() ?? 'USD') : 'USD';
+    final exchangeRates = ExchangeRateService.loadFromStorage();
 
     final excel = Excel.createExcel();
     final defaultSheet = excel.getDefaultSheet() ?? 'Sheet1';
@@ -120,12 +191,57 @@ class UniversalExporter {
       TextCellValue('Type'),
       TextCellValue('Total Volumes'),
       TextCellValue('Owned Volumes'),
+      TextCellValue('Total Spent ($baseCurrency)'),
       TextCellValue('Status'),
       TextCellValue('Tags'),
     ]);
 
     for (final s in allSeries) {
       final sVolumes = allVolumes.where((v) => v.seriesId == s.id).toList();
+      double sSpent = 0.0;
+      final purchasedVolumes = sVolumes.where((v) => v.isOwned && !v.isGift).toList();
+      if (s.seriesPrice != null && s.seriesPrice! > 0) {
+        if (purchasedVolumes.isNotEmpty) {
+          sSpent = CurrencyHelper.convert(
+            amount: s.seriesPrice!,
+            fromCurrency: s.currency ?? baseCurrency,
+            toCurrency: baseCurrency,
+            rates: exchangeRates,
+          );
+        }
+      } else {
+        for (final v in sVolumes) {
+          if (!v.isOwned || v.isGift) continue;
+          final txs = allTxs.where((t) => t.volumeId == v.id && t.quotaBucket != 'gift').toList();
+          if (txs.isNotEmpty && txs.first.price > 0) {
+            final tx = txs.first;
+            final txCurr = tx.currency ?? baseCurrency;
+            sSpent += CurrencyHelper.convert(
+              amount: tx.price,
+              fromCurrency: txCurr,
+              toCurrency: baseCurrency,
+              rates: exchangeRates,
+            );
+          } else if (v.price != null && v.price! > 0) {
+            final volCurr = v.currency ?? baseCurrency;
+            sSpent += CurrencyHelper.convert(
+              amount: v.price!,
+              fromCurrency: volCurr,
+              toCurrency: baseCurrency,
+              rates: exchangeRates,
+            );
+          } else {
+            final defPrice = s.defaultVolumePrice ?? CurrencyHelper.defaultVolumePrice;
+            final defCurr = s.defaultVolumeCurrency ?? CurrencyHelper.defaultVolumeCurrency;
+            sSpent += CurrencyHelper.convert(
+              amount: defPrice,
+              fromCurrency: defCurr,
+              toCurrency: baseCurrency,
+              rates: exchangeRates,
+            );
+          }
+        }
+      }
       final ownedCount = sVolumes.where((v) => v.isOwned).length;
       final totalCount = s.totalVolumesReleased ?? sVolumes.length;
       final author = s.customMetadata['author']?.toString() ?? '';
@@ -140,6 +256,7 @@ class UniversalExporter {
         TextCellValue(typeLabel),
         IntCellValue(totalCount),
         IntCellValue(ownedCount),
+        DoubleCellValue(sSpent),
         TextCellValue(s.collectionStatus),
         TextCellValue(tagsStr),
       ]);

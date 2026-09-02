@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/currency_helper.dart';
 import '../../core/utils/date_formatter.dart';
 import '../../core/utils/type_helper.dart';
 import '../../core/utils/uuid_generator.dart';
 import '../../models/series.dart';
 import '../../models/volume.dart';
 import '../../models/purchase_transaction.dart';
+import '../../providers/database_provider.dart';
+import '../../providers/quota_provider.dart';
 import '../../providers/series_provider.dart';
 import '../widgets/canele_card.dart';
 import '../widgets/canele_progress_bar.dart';
@@ -48,6 +51,26 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
           ? DateFormatter.formatVolumeNumber(existingVolume.volumeNumber)
           : defaultVolNum,
     );
+    final priceController = TextEditingController(
+      text: (isEditing && existingVolume.price != null && existingVolume.price! > 0)
+          ? existingVolume.price!.toStringAsFixed(
+              existingVolume.price! == existingVolume.price!.roundToDouble() ? 0 : 2,
+            )
+          : '',
+    );
+    final allSeriesList = ref.read(seriesNotifierProvider);
+    final currentSeries = allSeriesList.cast<Series?>().firstWhere(
+          (s) => s?.id == widget.seriesId,
+          orElse: () => null,
+        );
+
+    final defPrice = currentSeries?.defaultVolumePrice ?? CurrencyHelper.defaultVolumePrice;
+    final defCurrency = currentSeries?.defaultVolumeCurrency ?? currentSeries?.currency ?? CurrencyHelper.defaultVolumeCurrency;
+    final formattedDefaultPrice = CurrencyHelper.format(defPrice, currencyCode: defCurrency);
+
+    String selectedCurrency = (isEditing && existingVolume.currency != null)
+        ? existingVolume.currency!
+        : defCurrency;
     DateTime? releaseDate = isEditing ? existingVolume.releaseDate : null;
     String availability = isEditing ? existingVolume.availability : 'available';
     bool isWatchlist = isEditing ? existingVolume.isRestockedWatchlist : false;
@@ -75,6 +98,51 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                       decoration: const InputDecoration(
                         hintText: 'e.g. 12 or 11.5 for side stories',
                       ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Price / Cost (Optional)
+                    Text('Price (Optional)', style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 4),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: TextField(
+                            controller: priceController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: InputDecoration(
+                              hintText: '0.00 ($formattedDefaultPrice)',
+                              prefixIcon: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                child: CurrencySymbolText(
+                                  currencyCode: selectedCurrency,
+                                  baseFontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: CurrencyDropdownField(
+                            value: selectedCurrency,
+                            onChanged: (val) {
+                              if (val != null) {
+                                setDialogState(() => selectedCurrency = val);
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Series default ($formattedDefaultPrice) will apply if left blank',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11),
                     ),
                     const SizedBox(height: 12),
 
@@ -242,6 +310,8 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                       return;
                     }
 
+                    final priceVal = CurrencyHelper.parsePrice(priceController.text.trim());
+
                     final volume = Volume(
                       id: isEditing ? existingVolume.id : UuidGenerator.generate(),
                       seriesId: widget.seriesId,
@@ -251,9 +321,24 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                       isRestockedWatchlist: isWatchlist,
                       isOwned: isOwned,
                       isGift: isGift,
+                      price: priceVal > 0 ? priceVal : null,
+                      currency: priceVal > 0 ? selectedCurrency : (isEditing ? existingVolume.currency : selectedCurrency),
                     );
 
                     await ref.read(volumesNotifierProvider.notifier).saveVolume(volume);
+
+                    if (isEditing && isOwned && priceVal > 0) {
+                      final existingTx = ref.read(transactionRepositoryProvider).getByVolumeId(existingVolume.id);
+                      if (existingTx != null) {
+                        await ref.read(transactionsNotifierProvider.notifier).saveTransaction(
+                          existingTx.copyWith(
+                            price: priceVal,
+                            currency: selectedCurrency,
+                          ),
+                        );
+                      }
+                    }
+
                     if (ctx.mounted) Navigator.of(ctx).pop(true);
                   },
                   child: Text(isEditing ? 'Save' : 'Add Volume'),
@@ -403,11 +488,25 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
 
   void _showEditSeriesDialog(Series series) async {
     final titleController = TextEditingController(text: series.title);
+    final priceController = TextEditingController(
+      text: series.seriesPrice != null && series.seriesPrice! > 0
+          ? (series.seriesPrice == series.seriesPrice!.roundToDouble()
+              ? series.seriesPrice!.toInt().toString()
+              : series.seriesPrice!.toString())
+          : '',
+    );
+    final defaultVolPriceController = TextEditingController(
+      text: (series.defaultVolumePrice ?? CurrencyHelper.defaultVolumePrice).toStringAsFixed(
+        (series.defaultVolumePrice ?? CurrencyHelper.defaultVolumePrice) == (series.defaultVolumePrice ?? CurrencyHelper.defaultVolumePrice).roundToDouble() ? 0 : 2,
+      ),
+    );
     final allSeries = ref.read(seriesNotifierProvider);
     final availableTypes = TypeHelper.getAllAvailableTypes(allSeries.map((s) => s.type));
     String type = TypeHelper.formatTypeLabel(series.type);
     String status = series.collectionStatus;
     String releaseStatus = series.releaseStatus;
+    String selectedCurrency = series.currency ?? ref.read(ruleConfigNotifierProvider).currency;
+    String selectedDefaultVolCurrency = series.defaultVolumeCurrency ?? CurrencyHelper.defaultVolumeCurrency;
 
     final saved = await showDialog<bool>(
       context: context,
@@ -489,6 +588,96 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                       ],
                       onChanged: (val) => setDialogState(() => releaseStatus = val!),
                     ),
+                    const SizedBox(height: 12),
+
+                    // Default Volume Price
+                    Text('Default Price Per Volume (Optional)', style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Used for all volumes in this series unless an explicit price is entered for a volume',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: TextField(
+                            controller: defaultVolPriceController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: InputDecoration(
+                              hintText: '14.99',
+                              prefixIcon: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                child: CurrencySymbolText(
+                                  currencyCode: selectedDefaultVolCurrency,
+                                  baseFontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: CurrencyDropdownField(
+                            value: selectedDefaultVolCurrency,
+                            onChanged: (val) {
+                              if (val != null) {
+                                setDialogState(() => selectedDefaultVolCurrency = val);
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Combined Series Price
+                    Text('Combined Series Price (Optional)', style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Total bundle price for the series instead of individual volume pricing',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: TextField(
+                            controller: priceController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: InputDecoration(
+                              hintText: '0.00',
+                              prefixIcon: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                child: CurrencySymbolText(
+                                  currencyCode: selectedCurrency,
+                                  baseFontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: CurrencyDropdownField(
+                            value: selectedCurrency,
+                            onChanged: (val) {
+                              if (val != null) {
+                                setDialogState(() => selectedCurrency = val);
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -499,11 +688,19 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                 ),
                 ElevatedButton(
                   onPressed: () async {
+                    final parsedPrice = CurrencyHelper.parsePrice(priceController.text);
+                    final parsedDefaultVolPrice = CurrencyHelper.parsePrice(defaultVolPriceController.text);
                     final updated = series.copyWith(
                       title: titleController.text.trim(),
                       type: TypeHelper.normalizeKey(type),
                       collectionStatus: status,
                       releaseStatus: releaseStatus,
+                      seriesPrice: parsedPrice > 0 ? parsedPrice : null,
+                      clearSeriesPrice: parsedPrice <= 0,
+                      currency: parsedPrice > 0 ? selectedCurrency : null,
+                      clearCurrency: parsedPrice <= 0,
+                      defaultVolumePrice: parsedDefaultVolPrice > 0 ? parsedDefaultVolPrice : CurrencyHelper.defaultVolumePrice,
+                      defaultVolumeCurrency: parsedDefaultVolPrice > 0 ? selectedDefaultVolCurrency : CurrencyHelper.defaultVolumeCurrency,
                     );
 
                     await ref.read(seriesNotifierProvider.notifier).saveSeries(updated);
@@ -542,6 +739,8 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
     }
 
     final stats = ref.watch(seriesStatsProvider(series.id));
+    final ruleConfig = ref.watch(ruleConfigNotifierProvider);
+    final exchangeRates = ref.watch(exchangeRatesNotifierProvider);
     final allVolumes = ref.watch(volumesNotifierProvider).where((v) => v.seriesId == series.id).toList()
       ..sort((a, b) => a.volumeNumber.compareTo(b.volumeNumber));
     final allTransactions = ref.watch(transactionsNotifierProvider);
@@ -563,6 +762,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             tooltip: 'Edit Series',
           ),
           PopupMenuButton<String>(
+            key: const Key('series_detail_appbar_menu'),
             onSelected: (val) async {
               if (val == 'complete') {
                 final confirm = await showDialog<bool>(
@@ -625,30 +825,33 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                 const PopupMenuItem(
                   value: 'complete',
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.check_circle_outline_rounded, color: AppColors.caramelizedAmber),
                       SizedBox(width: 8),
-                      Text('Mark as Completed'),
+                      Flexible(child: Text('Mark as Completed')),
                     ],
                   ),
                 ),
               const PopupMenuItem(
                 value: 'bulk_mark',
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.checklist_rounded, color: AppColors.caramelizedAmber),
                     SizedBox(width: 8),
-                    Text('Bulk Mark Volumes'),
+                    Flexible(child: Text('Bulk Mark Volumes')),
                   ],
                 ),
               ),
               const PopupMenuItem(
                 value: 'delete',
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.delete_outline, color: AppColors.statusDanger),
                     SizedBox(width: 8),
-                    Text('Delete Series', style: TextStyle(color: AppColors.statusDanger)),
+                    Flexible(child: Text('Delete Series', style: TextStyle(color: AppColors.statusDanger))),
                   ],
                 ),
               ),
@@ -742,12 +945,81 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                       style: theme.textTheme.bodySmall?.copyWith(fontSize: 11),
                     ),
                   ],
+
+                  if ((series.defaultVolumePrice ?? CurrencyHelper.defaultVolumePrice) > 0) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Default Price / Vol', style: theme.textTheme.bodySmall),
+                        Text(
+                          '${CurrencyHelper.format(series.defaultVolumePrice ?? CurrencyHelper.defaultVolumePrice, currencyCode: series.defaultVolumeCurrency ?? CurrencyHelper.defaultVolumeCurrency)}${(series.defaultVolumeCurrency ?? CurrencyHelper.defaultVolumeCurrency) != ruleConfig.currency ? " (${CurrencyHelper.format(CurrencyHelper.convert(amount: series.defaultVolumePrice ?? CurrencyHelper.defaultVolumePrice, fromCurrency: series.defaultVolumeCurrency ?? CurrencyHelper.defaultVolumeCurrency, toCurrency: ruleConfig.currency, rates: exchangeRates), currencyCode: ruleConfig.currency)})" : ""}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? AppColors.darkTextPrimary : AppColors.deepCaramel,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+
+                  if (series.seriesPrice != null && series.seriesPrice! > 0) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Text('Combined Series Price', style: theme.textTheme.bodySmall),
+                            const SizedBox(width: 5),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: AppColors.caramelizedAmber.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'Bundle',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark ? AppColors.caramelizedAmberLight : AppColors.caramelizedAmber,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          '${CurrencyHelper.format(series.seriesPrice!, currencyCode: series.currency ?? ruleConfig.currency)}${series.currency != null && series.currency != ruleConfig.currency ? " (${CurrencyHelper.format(stats.totalSpent, currencyCode: ruleConfig.currency)})" : ""}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? AppColors.caramelizedAmberLight : AppColors.caramelizedAmber,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else if (stats.totalSpent > 0) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Series Spend', style: theme.textTheme.bodySmall),
+                        Text(
+                          CurrencyHelper.format(stats.totalSpent, currencyCode: ruleConfig.currency),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? AppColors.caramelizedAmberLight : AppColors.caramelizedAmber,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(height: 16),
 
-            // Action Buttons (Add Volume, Batch Add, Bulk Mark)
+            // Action Buttons (Add Volume, Batch Add)
             Row(
               children: [
                 Expanded(
@@ -763,14 +1035,6 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     onPressed: () => _showBatchAddDialog(context),
                     icon: const Icon(Icons.playlist_add_rounded, size: 18),
                     label: const Text('Batch Add'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _showBulkMarkSheet(context, series, allVolumes),
-                    icon: const Icon(Icons.checklist_rounded, size: 18),
-                    label: const Text('Bulk Mark'),
                   ),
                 ),
               ],
@@ -823,6 +1087,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                 return VolumeChecklistTile(
                   volume: vol,
                   transaction: tx,
+                  currency: ruleConfig.currency,
+                  defaultVolumePrice: series.defaultVolumePrice,
+                  defaultVolumeCurrency: series.defaultVolumeCurrency ?? series.currency ?? ruleConfig.currency,
                   onToggleOwned: (val) {
                     if (val) {
                       LogTransactionSheet.show(context, series: series, volume: vol);
@@ -1113,21 +1380,22 @@ class _BulkMarkVolumesSheetState extends ConsumerState<_BulkMarkVolumesSheet> {
                     visualDensity: VisualDensity.compact,
                     selectedBackgroundColor: AppColors.caramelizedAmber,
                     selectedForegroundColor: Colors.white,
+                    textStyle: const TextStyle(fontSize: 12),
                   ),
                   segments: const [
                     ButtonSegment(
                       value: 'purchased',
-                      label: Text('Purchased'),
+                      label: Text('Purchased', style: TextStyle(fontSize: 12)),
                       icon: Icon(Icons.shopping_bag_outlined, size: 16),
                     ),
                     ButtonSegment(
                       value: 'gift',
-                      label: Text('Gift'),
+                      label: Text('Gift', style: TextStyle(fontSize: 12)),
                       icon: Icon(Icons.card_giftcard_rounded, size: 16),
                     ),
                     ButtonSegment(
                       value: 'unowned',
-                      label: Text('Unmark'),
+                      label: Text('Unmark', style: TextStyle(fontSize: 12)),
                       icon: Icon(Icons.remove_circle_outline_rounded, size: 16),
                     ),
                   ],
