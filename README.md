@@ -10,7 +10,7 @@
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL_3.0-amber.svg)](LICENSE)
 
 <p align="center">
-  <b>Canelé</b> is an elegant, local-first Android app designed for passionate book, manga, comic, and light novel collectors. It replaces opaque, black-box recommendation algorithms with an auditable mathematical quota cadence system and a customizable multi-pass acquisition waterfall.
+  <b>Canelé</b> is an elegant, local-first Android app designed for physical collectors, gamers, and hobbyists. It replaces opaque, black-box recommendation algorithms with an auditable mathematical quota cadence system and a customizable multi-pass acquisition waterfall.
 </p>
 
 [Key Features](#-key-features) •
@@ -43,21 +43,21 @@
 
 ### 📐 100% Deterministic — Zero Black-Box AI
 - **Transparent Arithmetic**: Your monthly acquisition targets are derived entirely from your declared start month, monthly cadence, scheduled bonus months, and historical purchases.
-- **Auditable Auto-Skip Projections**: If you acquire books ahead of schedule or buy in bulk, Canelé mathematically calculates the exact future month (e.g. *"November 2026"*) when your normal purchasing cadence catches up.
+- **Auditable Auto-Skip Projections**: If you acquire items ahead of schedule or buy in bulk, Canelé mathematically calculates the exact future month (e.g. *"November 2026"*) when your normal purchasing cadence catches up.
 
 ### 🎯 Multi-Pass Acquisition Waterfall (Rule Studio)
 - **4-Slot Monthly Target Queue**: Configurable priority rules sequentially fill your dashboard targets.
 - **Pre-Built Strategy Passes**:
-  - 🔄 **Stay Caught Up**: Prioritizes active series where you are missing exactly 1 released volume.
-  - 🔔 **Restock Watchlist**: Highlights out-of-stock volumes that are back in stock.
+  - 🔄 **Stay Caught Up**: Prioritizes active series/sets where you are missing exactly 1 released item.
+  - 🔔 **Restock Watchlist**: Highlights out-of-stock items that are back in stock.
   - 📊 **Cascading Completion**: Recommends series with the highest completion percentage to help you finish ongoing runs.
-  - ⏩ **Sequential Next Volume**: Dynamically fetches the lowest unowned volume for active series.
+  - ⏩ **Sequential Next Volume**: Dynamically fetches the lowest unowned entry for active collections.
 - **Custom Rule Engine**: Create, toggle, reorder, and adjust candidate limits per rule pass.
 
-### 📚 Series & Volume Management
-- **Full Volume Numbering Support**: Seamlessly tracks fractional and decimal editions (e.g., *Vol. 11.5* side stories, special edition releases, omnibus collections).
-- **Fast Bulk Marking**: Mark entire volume spans (e.g., *Vols. 1–12*) as purchased or unowned with a single tap.
-- **Granular Availability & Formats**: Categorize items as Light Novel, Manga, Comic, Novel, Artbook, or custom formats with live stock status tracking (*Available*, *Pre-Order*, *Backorder*, *Out of Print*).
+### 📚 Collection & Item Management
+- **Full Volume & Numbering Support**: Seamlessly tracks sequential, fractional, and decimal editions (e.g., *Vol. 11.5*, special releases, omnibus collections).
+- **Fast Bulk Marking**: Mark entire item spans (e.g., *Vols. 1–12*) as acquired or unowned with a single tap.
+- **Granular Availability & Custom Formats**: Categorize items across custom and preset formats with live stock status tracking (*Available*, *Pre-Order*, *Backorder*, *Out of Print*).
 
 ### 📊 Deep Statistics & Visual Insights
 - **Quota & Velocity Metrics**: Live breakdown of Regular vs. Bonus quota buckets, net balance, and ahead-of-schedule credits.
@@ -139,9 +139,9 @@ flowchart LR
     E --> G["Rule Studio Waterfall<br>(Prioritized Recommendations)"]
 ```
 
-1. **Set Your Pace**: Declare your starting month (e.g., *January 2024*), standard monthly allowance (e.g., *1 book/month*), and recurring bonus months (e.g., *May & December* for holidays/birthdays).
-2. **Log Transactions**: When you buy a book, tag it as **Regular**, **Bonus**, or **Gift** (gifts do not consume your purchasing quota).
-3. **Waterfall Selection**: Canelé evaluates all active volumes across your configured priority passes and generates your top monthly acquisition targets.
+1. **Set Your Pace**: Declare your starting month (e.g., *January 2024*), standard monthly allowance (e.g., *1 item/month*), and recurring bonus months (e.g., *May & December* for holidays/birthdays).
+2. **Log Transactions**: When you acquire an item, tag it as **Regular**, **Bonus**, or **Gift** (gifts do not consume your purchasing quota).
+3. **Waterfall Selection**: Canelé evaluates all active items across your configured priority passes and generates your top monthly acquisition targets.
 
 ---
 

@@ -1,5 +1,5 @@
 name: canele
-description: "Canelé — A local-first, deterministic book collection manager and acquisition planner."
+description: "Canelé — A local-first, deterministic collection manager and acquisition planner."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
