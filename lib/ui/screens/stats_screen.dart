@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
@@ -44,6 +45,17 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     final totalBought = totalOwned - totalGifted;
     final giftPercentage = totalOwned > 0 ? (totalGifted / totalOwned * 100) : 0.0;
     final boughtPercentage = totalOwned > 0 ? (totalBought / totalOwned * 100) : 0.0;
+
+    // Financial timeline amortized metrics (start date to today inclusive)
+    final now = DateTime.now();
+    final totalTimelineMonths = max(
+      1,
+      (now.year - config.timelineStartDate.year) * 12 +
+          (now.month - config.timelineStartDate.month) +
+          1,
+    );
+    final estMonthlySpend = quotaSummary.totalSpent / totalTimelineMonths;
+    final estYearlySpend = estMonthlySpend * 12;
 
     // Series metrics
     final totalSeries = allSeries.length;
@@ -348,7 +360,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
             // Financial & Spending Analytics
             const _SectionHeader(
               title: 'Financial & Spend Insights',
-              subtitle: 'Cost overview and average investment per volume',
+              subtitle: 'Cost overview and amortized spending estimates',
               icon: Icons.payments_rounded,
             ),
             const SizedBox(height: 10),
@@ -379,7 +391,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Across all logged acquisitions',
+                              'Across all volumes',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
@@ -407,14 +419,84 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                               totalBought > 0
                                   ? CurrencyHelper.format(quotaSummary.totalSpent / totalBought, currencyCode: config.currency)
                                   : 'N/A',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w800,
+                                color: isDark ? AppColors.caramelizedAmberLight : AppColors.caramelizedAmber,
                               ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               'Per purchased volume',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Est. Monthly Spend',
+                              style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              CurrencyHelper.format(estMonthlySpend, currencyCode: config.currency),
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? AppColors.caramelizedAmberLight : AppColors.caramelizedAmber,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Total spent / $totalTimelineMonths mos',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 48,
+                        color: isDark ? AppColors.darkPastryBorder : AppColors.pastryCrustBorder,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Est. Annual Spend',
+                              style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              CurrencyHelper.format(estYearlySpend, currencyCode: config.currency),
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? AppColors.caramelizedAmberLight : AppColors.caramelizedAmber,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Annualized pace (12 mos)',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,

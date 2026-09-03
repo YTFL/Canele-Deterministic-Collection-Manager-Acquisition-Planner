@@ -111,16 +111,18 @@ class ExchangeRateService {
     return syncCooldown - elapsed;
   }
 
-  /// Human-friendly representation of remaining cooldown (e.g., "23h 45m")
+  /// Human-friendly representation of remaining cooldown (e.g., "4h", "8h", or "45m" when <1h)
   static String formatCooldownRemaining(Duration remaining) {
     if (remaining.inSeconds <= 0) return 'Available now';
     final hours = remaining.inHours;
-    final minutes = remaining.inMinutes % 60;
     if (hours > 0) {
-      return '${hours}h ${minutes}m';
+      return '${hours}h';
     } else {
-      final seconds = remaining.inSeconds % 60;
-      return '${minutes}m ${seconds}s';
+      final minutes = remaining.inMinutes;
+      if (minutes > 0) {
+        return '${minutes}m';
+      }
+      return '<1m';
     }
   }
 

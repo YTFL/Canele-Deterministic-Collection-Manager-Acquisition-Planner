@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.1] - 2026-09-03
+
+### Added
+- **Amortized Spending Estimates**:
+  - Expanded the **Financial & Spend Insights** card in Statistics with **Estimated Monthly Spend** and **Estimated Annual Spend** styled in Canelé amber.
+  - Amortizes total collection spending across all timeline months elapsed from your start date to today, showing a high-level spending pace alongside total spent and average cost per volume.
+
+### Changed
+- **Financial & Spend Insights Typography & Labels**:
+  - Unified all financial metric values (`Average / Volume`, `Est. Monthly Spend`, `Est. Annual Spend`) to use the Canelé caramelized amber accent color matching `Total Spent`.
+  - Simplified Total Spent subtitle from "Across all logged acquisitions" to "Across all volumes".
+- **Streamlined Volume Checklist Cards**:
+  - Hid price tags for volumes marked as gifts (`GIFT` badge remains).
+  - Removed `(Default)` suffix from volume price text.
+- **De-Cluttered Dashboard Watchlist**:
+  - Simplified watchlist item cards on the dashboard to show only the series title, volume number, and release timing (`Released on <date>` or `Releases <date>`), removing redundant status badges.
+- **Bottom Navigation Bar Polish**:
+  - Removed the background indicator pill highlight from the selected icon in both light and dark themes, using pure color highlighting for icons and labels.
+- **Exchange Rates Sync Cooldown Display**:
+  - Simplified the cooldown timer to show only hours (e.g. `Next in 4h`, `8h`, `11h`), displaying minutes only when less than 1 hour remains.
+
+---
+
 ## [1.1.0] - 2026-09-02
 
 ### Added

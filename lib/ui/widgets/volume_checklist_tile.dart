@@ -167,29 +167,15 @@ class VolumeChecklistTile extends StatelessWidget {
                         ),
 
                       if (hasPriceInfo)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              formattedPrice,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: hasSpecificPrice
-                                    ? (isDark ? AppColors.darkTextPrimary : AppColors.deepCaramel)
-                                    : (isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted),
-                              ),
-                            ),
-                            if (!hasSpecificPrice && hasDefaultPrice)
-                              Text(
-                                ' (Default)',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w400,
-                                  color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
-                                ),
-                              ),
-                          ],
+                        Text(
+                          formattedPrice,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: hasSpecificPrice
+                                ? (isDark ? AppColors.darkTextPrimary : AppColors.deepCaramel)
+                                : (isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted),
+                          ),
                         ),
                     ],
                   ),

@@ -502,46 +502,41 @@ class _WatchlistItemCard extends StatelessWidget {
 
     Color badgeColor;
     Color badgeBg;
-    String badgeLabel;
     IconData badgeIcon;
-    String? subtitleNote;
 
     if (isReleasedNeedsUpdate) {
       badgeColor = AppColors.caramelizedAmber;
       badgeBg = isDark ? const Color(0xFF2C2219) : AppColors.warmPastryCrust.withValues(alpha: 0.5);
-      badgeLabel = 'RELEASED · UPDATE STATUS';
       badgeIcon = Icons.update_rounded;
-      subtitleNote = 'Released on ${DateFormatter.formatDisplay(volume.releaseDate!)}';
     } else if (isUpcoming) {
       badgeColor = isDark ? AppColors.caramelizedAmberLight : AppColors.caramelizedAmber;
       badgeBg = isDark ? AppColors.darkPastryCardElevated : AppColors.pastryCrustLight;
-      badgeLabel = 'UPCOMING';
       badgeIcon = Icons.event_available_rounded;
-      subtitleNote = 'Releases ${DateFormatter.formatDisplay(volume.releaseDate!)}';
     } else {
       switch (volume.availability) {
         case 'outOfStock':
           badgeColor = AppColors.statusWarning;
           badgeBg = isDark ? const Color(0xFF2C2219) : AppColors.statusWarningBg;
-          badgeLabel = 'OUT OF STOCK';
           badgeIcon = Icons.warning_amber_rounded;
-          subtitleNote = 'Temporarily out of stock';
           break;
         case 'outOfPrint':
           badgeColor = AppColors.statusDanger;
           badgeBg = isDark ? const Color(0xFF2C1919) : AppColors.statusDangerBg;
-          badgeLabel = 'OUT OF PRINT';
           badgeIcon = Icons.block_rounded;
-          subtitleNote = 'Out of print';
           break;
         default:
           badgeColor = isDark ? AppColors.caramelizedAmberLight : AppColors.caramelizedAmber;
           badgeBg = isDark ? AppColors.darkPastryCardElevated : AppColors.pastryCrustLight;
-          badgeLabel = 'WATCHLIST';
           badgeIcon = Icons.notifications_active_rounded;
           break;
       }
     }
+
+    final releaseDateText = isReleasedNeedsUpdate
+        ? 'Released on ${DateFormatter.formatDisplay(volume.releaseDate!)}'
+        : (isUpcoming
+            ? 'Releases ${DateFormatter.formatDisplay(volume.releaseDate!)}'
+            : null);
 
     return CaneleCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -566,7 +561,7 @@ class _WatchlistItemCard extends StatelessWidget {
           ),
           const SizedBox(width: 12),
 
-          // Series Title & Volume Info
+          // Series Title, Volume Info & Release Date
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -580,56 +575,40 @@ class _WatchlistItemCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+                const SizedBox(height: 2),
+                Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.caramelizedAmber.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(6),
+                    Text(
+                      'Vol. ${DateFormatter.formatVolumeNumber(volume.volumeNumber)}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.deepCaramel,
                       ),
-                      child: Text(
-                        'Vol. ${DateFormatter.formatVolumeNumber(volume.volumeNumber)}',
+                    ),
+                    if (releaseDateText != null) ...[
+                      Text(
+                        ' · ',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.caramelizedAmber,
+                          color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
                         ),
                       ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: badgeBg,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        badgeLabel,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: badgeColor,
+                      Expanded(
+                        child: Text(
+                          releaseDateText,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: 12,
+                            color: isReleasedNeedsUpdate
+                                ? AppColors.caramelizedAmber
+                                : (isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted),
+                            fontWeight: isReleasedNeedsUpdate ? FontWeight.w600 : FontWeight.w400,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
-                if (subtitleNote != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitleNote,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontSize: 11,
-                      color: isReleasedNeedsUpdate
-                          ? AppColors.caramelizedAmber
-                          : (isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted),
-                      fontWeight: isReleasedNeedsUpdate ? FontWeight.w600 : FontWeight.w400,
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
