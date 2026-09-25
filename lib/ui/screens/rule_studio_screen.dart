@@ -9,6 +9,7 @@ import '../widgets/canele_card.dart';
 import '../widgets/canele_month_year_picker.dart';
 import '../widgets/rule_card.dart';
 import '../widgets/edit_rule_sheet.dart';
+import '../widgets/workspace_switcher_app_bar_title.dart';
 
 class RuleStudioScreen extends ConsumerStatefulWidget {
   const RuleStudioScreen({super.key});
@@ -362,7 +363,7 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Rule Studio'),
+        title: const WorkspaceSwitcherAppBarTitle(fallbackTitle: 'Rule Studio'),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: AppColors.caramelizedAmber,

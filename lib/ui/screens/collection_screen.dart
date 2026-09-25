@@ -10,6 +10,7 @@ import '../../providers/series_provider.dart';
 import '../widgets/canele_card.dart';
 import '../widgets/canele_progress_bar.dart';
 import '../widgets/add_series_sheet.dart';
+import '../widgets/workspace_switcher_app_bar_title.dart';
 import 'series_detail_screen.dart';
 
 enum CollectionSortOption {
@@ -118,7 +119,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Book Collection'),
+        title: const WorkspaceSwitcherAppBarTitle(fallbackTitle: 'Collection'),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,

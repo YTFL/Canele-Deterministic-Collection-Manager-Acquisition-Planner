@@ -15,8 +15,12 @@ import '../../providers/series_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../services/exchange_rate_service.dart';
 import '../../services/update_service.dart';
+import '../../models/profile.dart';
+import '../../providers/profile_provider.dart';
+import '../widgets/add_workspace_dialog.dart';
 import '../widgets/canele_card.dart';
 import '../widgets/update_dialog.dart';
+import '../widgets/workspace_switcher_modal.dart';
 import 'import_export_screen.dart';
 import 'onboarding_screen.dart';
 import 'whats_new_screen.dart';
@@ -333,6 +337,126 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Workspaces & Profiles Management
+            Text(
+              'Workspaces & Profiles',
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Consumer(
+              builder: (ctx, ref, _) {
+                final profileState = ref.watch(profileNotifierProvider);
+                final activeProfile = profileState.activeProfile;
+
+                return CaneleCard(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: AppColors.caramelizedAmber,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            activeProfile.type == ProfileType.games
+                                ? Icons.sports_esports_rounded
+                                : (activeProfile.type == ProfileType.custom
+                                    ? Icons.layers_rounded
+                                    : Icons.auto_stories_rounded),
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        title: Text(
+                          activeProfile.name,
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                        ),
+                        subtitle: Text(
+                          '${profileState.allProfiles.length} workspace(s) configured · Tap to switch',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(ctx).brightness == Brightness.dark
+                                ? AppColors.darkTextMuted
+                                : AppColors.deepCaramelMuted,
+                          ),
+                        ),
+                        trailing: const Icon(Icons.swap_horiz_rounded, color: AppColors.caramelizedAmber),
+                        onTap: () {
+                          WorkspaceSwitcherModal.show(
+                            context: ctx,
+                            activeProfile: activeProfile,
+                            profiles: profileState.allProfiles,
+                            onSelectProfile: (id) {
+                              ref.read(profileNotifierProvider.notifier).switchProfile(id);
+                            },
+                            onAddWorkspace: () {
+                              AddWorkspaceDialog.show(
+                                context: ctx,
+                                onCreate: ({
+                                  required String name,
+                                  required ProfileType type,
+                                  String? icon,
+                                  CustomWorkspaceSchema? customSchema,
+                                }) async {
+                                  await ref.read(profileNotifierProvider.notifier).createProfile(
+                                        name: name,
+                                        type: type,
+                                        icon: icon,
+                                        customSchema: customSchema,
+                                      );
+                                },
+                              );
+                            },
+                          );
+                        },
+                      ),
+                      const Divider(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                AddWorkspaceDialog.show(
+                                  context: ctx,
+                                  onCreate: ({
+                                    required String name,
+                                    required ProfileType type,
+                                    String? icon,
+                                    CustomWorkspaceSchema? customSchema,
+                                  }) async {
+                                    await ref.read(profileNotifierProvider.notifier).createProfile(
+                                          name: name,
+                                          type: type,
+                                          icon: icon,
+                                          customSchema: customSchema,
+                                        );
+                                  },
+                                );
+                              },
+                              icon: const Icon(Icons.add_rounded, size: 18),
+                              label: const Text('Add Workspace'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.caramelizedAmber,
+                                side: const BorderSide(color: AppColors.caramelizedAmber),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+
             // Theme Selector & Preferences
             Text(
               'Appearance & Preferences',

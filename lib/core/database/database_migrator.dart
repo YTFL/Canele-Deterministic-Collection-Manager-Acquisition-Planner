@@ -1,15 +1,120 @@
 import 'package:flutter/foundation.dart';
-import '../../core/utils/type_helper.dart';
+import 'package:hive/hive.dart';
 import 'hive_boxes.dart';
+import '../../core/utils/type_helper.dart';
 
 class DatabaseMigrator {
   static const int currentSchemaVersion = 2;
   static const String _schemaVersionKey = 'app_database_schema_version';
 
-  /// Runs all pending database migrations upon app launch / installation.
-  static Future<void> runMigrations() async {
+  /// Scopes legacy un-scoped boxes to [targetProfileId] without data loss.
+  static Future<void> migrateLegacyBoxesIfNeeded(String targetProfileId) async {
     try {
-      final configBox = HiveBoxes.ruleConfigBox;
+      final configBox = HiveBoxes.getRuleConfigBox(targetProfileId);
+      final rawMigrated = configBox.get('legacy_scoping_migrated_v2');
+      if (rawMigrated is Map && rawMigrated['migrated'] == true) {
+        return; // Already migrated
+      }
+
+      // Check if legacy un-scoped boxes exist and have data
+      final hasLegacySeries = await Hive.boxExists(HiveBoxes.legacySeriesBoxName);
+      final hasLegacyVolumes = await Hive.boxExists(HiveBoxes.legacyVolumesBoxName);
+      final hasLegacyTransactions = await Hive.boxExists(HiveBoxes.legacyTransactionsBoxName);
+      final hasLegacyRules = await Hive.boxExists(HiveBoxes.legacyRulesBoxName);
+      final hasLegacyRuleConfig = await Hive.boxExists(HiveBoxes.legacyRuleConfigBoxName);
+
+      if (!hasLegacySeries &&
+          !hasLegacyVolumes &&
+          !hasLegacyTransactions &&
+          !hasLegacyRules &&
+          !hasLegacyRuleConfig) {
+        // Fresh install: mark migrated
+        await configBox.put('legacy_scoping_migrated_v2', {'migrated': true});
+        return;
+      }
+
+      debugPrint('[DatabaseMigrator] Migrating legacy un-scoped boxes to profile: $targetProfileId...');
+
+      // 1. Series
+      if (hasLegacySeries) {
+        final legacyBox = await Hive.openBox<Map>(HiveBoxes.legacySeriesBoxName);
+        if (legacyBox.isNotEmpty) {
+          final targetBox = HiveBoxes.getSeriesBox(targetProfileId);
+          for (final key in legacyBox.keys) {
+            final val = legacyBox.get(key);
+            if (val != null) {
+              await targetBox.put(key, Map<String, dynamic>.from(val));
+            }
+          }
+        }
+      }
+
+      // 2. Volumes
+      if (hasLegacyVolumes) {
+        final legacyBox = await Hive.openBox<Map>(HiveBoxes.legacyVolumesBoxName);
+        if (legacyBox.isNotEmpty) {
+          final targetBox = HiveBoxes.getVolumesBox(targetProfileId);
+          for (final key in legacyBox.keys) {
+            final val = legacyBox.get(key);
+            if (val != null) {
+              await targetBox.put(key, Map<String, dynamic>.from(val));
+            }
+          }
+        }
+      }
+
+      // 3. Transactions
+      if (hasLegacyTransactions) {
+        final legacyBox = await Hive.openBox<Map>(HiveBoxes.legacyTransactionsBoxName);
+        if (legacyBox.isNotEmpty) {
+          final targetBox = HiveBoxes.getTransactionsBox(targetProfileId);
+          for (final key in legacyBox.keys) {
+            final val = legacyBox.get(key);
+            if (val != null) {
+              await targetBox.put(key, Map<String, dynamic>.from(val));
+            }
+          }
+        }
+      }
+
+      // 4. Rules
+      if (hasLegacyRules) {
+        final legacyBox = await Hive.openBox<Map>(HiveBoxes.legacyRulesBoxName);
+        if (legacyBox.isNotEmpty) {
+          final targetBox = HiveBoxes.getRulesBox(targetProfileId);
+          for (final key in legacyBox.keys) {
+            final val = legacyBox.get(key);
+            if (val != null) {
+              await targetBox.put(key, Map<String, dynamic>.from(val));
+            }
+          }
+        }
+      }
+
+      // 5. Rule Config
+      if (hasLegacyRuleConfig) {
+        final legacyBox = await Hive.openBox<Map>(HiveBoxes.legacyRuleConfigBoxName);
+        if (legacyBox.isNotEmpty) {
+          for (final key in legacyBox.keys) {
+            final val = legacyBox.get(key);
+            if (val != null) {
+              await configBox.put(key, Map<String, dynamic>.from(val));
+            }
+          }
+        }
+      }
+
+      await configBox.put('legacy_scoping_migrated_v2', {'migrated': true});
+      debugPrint('[DatabaseMigrator] Legacy migration to $targetProfileId completed successfully.');
+    } catch (e, st) {
+      debugPrint('[DatabaseMigrator] Error during legacy box migration: $e\n$st');
+    }
+  }
+
+  /// Runs all pending database migrations upon app launch / installation for the active profile.
+  static Future<void> runMigrations([String? profileId]) async {
+    try {
+      final configBox = HiveBoxes.getRuleConfigBox(profileId);
       final dynamic rawVersion = configBox.get(_schemaVersionKey);
       int installedVersion = 1;
       if (rawVersion is Map && rawVersion['version'] is num) {
@@ -24,19 +129,19 @@ class DatabaseMigrator {
       debugPrint('[DatabaseMigrator] Migrating database from v$installedVersion to v$currentSchemaVersion...');
 
       // 1. Migrate Series Box
-      await _migrateSeriesBox();
+      await _migrateSeriesBox(profileId);
 
       // 2. Migrate Volumes Box
-      await _migrateVolumesBox();
+      await _migrateVolumesBox(profileId);
 
       // 3. Migrate Transactions Box
-      await _migrateTransactionsBox();
+      await _migrateTransactionsBox(profileId);
 
       // 4. Migrate Rules Box
-      await _migrateRulesBox();
+      await _migrateRulesBox(profileId);
 
       // 5. Migrate Rule Config Box
-      await _migrateRuleConfigBox();
+      await _migrateRuleConfigBox(profileId);
 
       // 6. Update Schema Version Key
       await configBox.put(_schemaVersionKey, {
@@ -50,8 +155,8 @@ class DatabaseMigrator {
     }
   }
 
-  static Future<void> _migrateSeriesBox() async {
-    final seriesBox = HiveBoxes.seriesBox;
+  static Future<void> _migrateSeriesBox([String? profileId]) async {
+    final seriesBox = HiveBoxes.getSeriesBox(profileId);
     final keys = List.from(seriesBox.keys);
 
     for (final key in keys) {
@@ -94,8 +199,8 @@ class DatabaseMigrator {
     }
   }
 
-  static Future<void> _migrateVolumesBox() async {
-    final volumesBox = HiveBoxes.volumesBox;
+  static Future<void> _migrateVolumesBox([String? profileId]) async {
+    final volumesBox = HiveBoxes.getVolumesBox(profileId);
     final keys = List.from(volumesBox.keys);
 
     for (final key in keys) {
@@ -129,8 +234,8 @@ class DatabaseMigrator {
     }
   }
 
-  static Future<void> _migrateTransactionsBox() async {
-    final txBox = HiveBoxes.transactionsBox;
+  static Future<void> _migrateTransactionsBox([String? profileId]) async {
+    final txBox = HiveBoxes.getTransactionsBox(profileId);
     final keys = List.from(txBox.keys);
 
     for (final key in keys) {
@@ -163,8 +268,8 @@ class DatabaseMigrator {
     }
   }
 
-  static Future<void> _migrateRulesBox() async {
-    final rulesBox = HiveBoxes.rulesBox;
+  static Future<void> _migrateRulesBox([String? profileId]) async {
+    final rulesBox = HiveBoxes.getRulesBox(profileId);
     final keys = List.from(rulesBox.keys);
 
     for (final key in keys) {
@@ -197,8 +302,8 @@ class DatabaseMigrator {
     }
   }
 
-  static Future<void> _migrateRuleConfigBox() async {
-    final configBox = HiveBoxes.ruleConfigBox;
+  static Future<void> _migrateRuleConfigBox([String? profileId]) async {
+    final configBox = HiveBoxes.getRuleConfigBox(profileId);
     final raw = configBox.get('global_config');
     if (raw is Map) {
       final map = Map<String, dynamic>.from(raw);

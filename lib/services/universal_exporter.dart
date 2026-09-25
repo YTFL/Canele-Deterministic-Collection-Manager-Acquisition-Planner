@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../core/database/database_migrator.dart';
 import '../core/database/hive_boxes.dart';
+import 'profile_service.dart';
 import '../models/series.dart';
 import '../models/volume.dart';
 import '../models/purchase_transaction.dart';
@@ -25,10 +26,12 @@ class UniversalExporter {
         RuleConfig.createDefault().toMap();
     final rules = HiveBoxes.rulesBox.values.toList();
 
+    final currentProfile = ProfileService.instance.activeProfile;
     final data = {
       'version': '2.0.0',
       'schemaVersion': DatabaseMigrator.currentSchemaVersion,
       'exportedAt': DateTime.now().toUtc().toIso8601String(),
+      'profile': currentProfile.toMap(),
       'series': series,
       'volumes': volumes,
       'transactions': transactions,

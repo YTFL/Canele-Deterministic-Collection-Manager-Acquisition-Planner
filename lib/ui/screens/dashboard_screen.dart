@@ -13,6 +13,7 @@ import '../widgets/recommendation_slot_card.dart';
 import '../widgets/log_transaction_sheet.dart';
 import 'series_detail_screen.dart';
 import 'stats_screen.dart';
+import '../widgets/workspace_switcher_app_bar_title.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -182,7 +183,7 @@ class DashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dashboard'),
+        title: const WorkspaceSwitcherAppBarTitle(fallbackTitle: 'Dashboard'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
