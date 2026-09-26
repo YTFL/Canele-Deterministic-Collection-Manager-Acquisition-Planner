@@ -6,6 +6,19 @@ enum ProfileType {
   custom,
 }
 
+extension ProfileTypeExtension on ProfileType {
+  String get displayName {
+    switch (this) {
+      case ProfileType.books:
+        return 'Books & Manga';
+      case ProfileType.games:
+        return 'Games';
+      case ProfileType.custom:
+        return 'Custom';
+    }
+  }
+}
+
 class CustomWorkspaceSchema {
   final String itemLabel; // e.g. "Game", "Vinyl", "Book"
   final String groupLabel; // e.g. "Franchise", "Artist", "Series"
@@ -90,6 +103,8 @@ class Profile {
     required this.createdAt,
     this.customSchema,
   });
+
+  bool get isDefault => id == 'profile_default_books';
 
   Profile copyWith({
     String? id,

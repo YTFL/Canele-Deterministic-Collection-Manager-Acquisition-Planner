@@ -23,6 +23,14 @@ class JsonBackupService {
     for (final p in ProfileService.instance.getAllProfiles()) {
       await HiveBoxes.clearAll(p.id);
     }
+    // Delete non-default profiles and switch to default books profile
+    final all = ProfileService.instance.getAllProfiles();
+    for (final p in all) {
+      if (p.id != ProfileService.defaultBooksProfileId) {
+        await ProfileService.instance.deleteProfile(p.id);
+      }
+    }
+    await ProfileService.instance.switchProfile(ProfileService.defaultBooksProfileId);
     final defaultConfig = RuleConfig.createDefault();
     await HiveBoxes.ruleConfigBox.put(defaultConfig.id, defaultConfig.toMap());
   }

@@ -10,17 +10,18 @@ import '../../core/utils/date_formatter.dart';
 import '../../core/database/json_backup_service.dart';
 import '../../models/app_update_model.dart';
 import '../../providers/quota_provider.dart';
-import '../../providers/rule_provider.dart';
-import '../../providers/series_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../services/exchange_rate_service.dart';
 import '../../services/update_service.dart';
 import '../../models/profile.dart';
 import '../../providers/profile_provider.dart';
+import 'package:hive/hive.dart';
+import '../../core/database/hive_boxes.dart';
+import '../../core/utils/workspace_terminology.dart';
 import '../widgets/add_workspace_dialog.dart';
+import '../widgets/edit_custom_schema_sheet.dart';
 import '../widgets/canele_card.dart';
 import '../widgets/update_dialog.dart';
-import '../widgets/workspace_switcher_modal.dart';
 import 'import_export_screen.dart';
 import 'onboarding_screen.dart';
 import 'whats_new_screen.dart';
@@ -320,6 +321,403 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  IconData _getProfileIcon(String? iconName, ProfileType type) {
+    if (type == ProfileType.games) {
+      return Icons.sports_esports_rounded;
+    }
+    if (type == ProfileType.custom) {
+      switch (iconName) {
+        case 'movie':
+        case 'film':
+          return Icons.movie_rounded;
+        case 'music':
+          return Icons.music_note_rounded;
+        case 'album':
+          return Icons.album_rounded;
+        case 'palette':
+        case 'art':
+          return Icons.palette_rounded;
+        case 'coffee':
+          return Icons.coffee_rounded;
+        case 'wine':
+          return Icons.wine_bar_rounded;
+        case 'sneaker':
+        case 'shoes':
+          return Icons.roller_skating_rounded;
+        case 'toy':
+        case 'figure':
+          return Icons.smart_toy_rounded;
+        case 'watch':
+          return Icons.watch_rounded;
+        case 'camera':
+          return Icons.camera_alt_rounded;
+        case 'card':
+          return Icons.style_rounded;
+        default:
+          return Icons.layers_rounded;
+      }
+    }
+    return Icons.auto_stories_rounded;
+  }
+
+  void _showRenameWorkspaceDialog(BuildContext context, Profile profile) {
+    final controller = TextEditingController(text: profile.name);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Rename Workspace'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Workspace Name',
+            hintText: 'Enter new workspace name',
+          ),
+          textCapitalization: TextCapitalization.words,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty && newName != profile.name) {
+                await ref.read(profileNotifierProvider.notifier).renameProfile(profile.id, newName);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context)
+                    ..clearSnackBars()
+                    ..showSnackBar(
+                      SnackBar(
+                        content: Text('Workspace renamed to "$newName"'),
+                        backgroundColor: AppColors.caramelizedAmber,
+                      ),
+                    );
+                }
+              }
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.caramelizedAmber,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showClearWorkspaceDialog(BuildContext context, Profile profile) {
+    final terminology = WorkspaceTerminology(profile);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Clear ${profile.name}?'),
+        content: Text(
+          'Are you sure you want to remove all ${terminology.itemsLabel.toLowerCase()} and acquisition history from "${profile.name}"?\n\n'
+          'Your custom rules, quotas, and workspace settings will be kept intact.\n\n'
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await HiveBoxes.clearAllUserData(profile.id);
+              final activeProfile = ref.read(profileNotifierProvider).activeProfile;
+              if (activeProfile.id == profile.id) {
+                ref.read(profileNotifierProvider.notifier).reloadAll();
+              }
+              if (context.mounted) {
+                ScaffoldMessenger.of(context)
+                  ..clearSnackBars()
+                  ..showSnackBar(
+                    SnackBar(
+                      content: Text('All ${terminology.itemsLabel.toLowerCase()} in "${profile.name}" have been cleared.'),
+                      backgroundColor: AppColors.statusDanger,
+                    ),
+                  );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.statusDanger,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Clear All Items'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteWorkspaceDialog(BuildContext context, Profile profile, int totalProfilesCount) {
+    if (totalProfilesCount <= 1 || profile.isDefault) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Cannot Delete Workspace'),
+          content: Text(
+            profile.isDefault
+                ? 'The primary default workspace cannot be deleted.'
+                : 'You must have at least one active workspace. Create or switch to another workspace before deleting this one.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    final terminology = WorkspaceTerminology(profile);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete "${profile.name}"?'),
+        content: Text(
+          'Are you sure you want to permanently delete the "${profile.name}" workspace?\n\n'
+          'All ${terminology.itemsLabel.toLowerCase()}, rules, quotas, and logs in this workspace will be deleted forever.\n\n'
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final success = await ref.read(profileNotifierProvider.notifier).deleteProfile(profile.id);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context)
+                  ..clearSnackBars()
+                  ..showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        success
+                            ? 'Workspace "${profile.name}" permanently deleted.'
+                            : 'Could not delete workspace.',
+                      ),
+                      backgroundColor: success ? AppColors.statusDanger : AppColors.caramelizedAmber,
+                    ),
+                  );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.statusDanger,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete Workspace'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWorkspaceSettingsTile(
+    BuildContext context,
+    WidgetRef ref,
+    Profile profile,
+    Profile activeProfile,
+    int totalProfilesCount,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isActive = profile.id == activeProfile.id;
+    final terminology = WorkspaceTerminology(profile);
+
+    int itemCount = 0;
+    final boxName = HiveBoxes.getSeriesBoxName(profile.id);
+    if (Hive.isBoxOpen(boxName)) {
+      itemCount = HiveBoxes.getSeriesBox(profile.id).length;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: isActive
+            ? AppColors.caramelizedAmber.withValues(alpha: isDark ? 0.15 : 0.08)
+            : (isDark ? AppColors.darkPastryCardElevated : AppColors.pastryCrustLight),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isActive
+              ? AppColors.caramelizedAmber
+              : (isDark ? AppColors.darkPastryBorder : AppColors.pastryCrustBorder),
+          width: isActive ? 1.5 : 0.8,
+        ),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        leading: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: isActive
+                ? AppColors.caramelizedAmber
+                : (isDark ? AppColors.darkPastryCard : Colors.grey.shade200),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            _getProfileIcon(profile.icon, profile.type),
+            color: isActive
+                ? Colors.white
+                : (isDark ? AppColors.darkTextPrimary : AppColors.deepCaramel),
+            size: 20,
+          ),
+        ),
+        title: Row(
+          children: [
+            Flexible(
+              child: Text(
+                profile.name,
+                style: TextStyle(
+                  fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+                  fontSize: 14,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (isActive) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.caramelizedAmber,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'ACTIVE',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        subtitle: Text(
+          '${profile.type.displayName} · $itemCount ${terminology.itemsLabel.toLowerCase()}',
+          style: TextStyle(
+            fontSize: 12,
+            color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
+          ),
+        ),
+        trailing: PopupMenuButton<String>(
+          icon: Icon(
+            Icons.more_vert_rounded,
+            color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
+            size: 20,
+          ),
+          onSelected: (value) async {
+            switch (value) {
+              case 'switch':
+                await ref.read(profileNotifierProvider.notifier).switchProfile(profile.id);
+                break;
+              case 'rename':
+                _showRenameWorkspaceDialog(context, profile);
+                break;
+              case 'schema':
+                if (context.mounted) {
+                  showEditCustomSchemaSheet(context, profile);
+                }
+                break;
+              case 'clear':
+                _showClearWorkspaceDialog(context, profile);
+                break;
+              case 'delete':
+                _showDeleteWorkspaceDialog(context, profile, totalProfilesCount);
+                break;
+            }
+          },
+          itemBuilder: (ctx) => [
+            if (!isActive)
+              const PopupMenuItem(
+                value: 'switch',
+                child: Row(
+                  children: [
+                    Icon(Icons.swap_horiz_rounded, size: 18),
+                    SizedBox(width: 8),
+                    Text('Switch to Workspace'),
+                  ],
+                ),
+              ),
+            const PopupMenuItem(
+              value: 'rename',
+              child: Row(
+                children: [
+                  Icon(Icons.edit_rounded, size: 18),
+                  SizedBox(width: 8),
+                  Text('Rename Workspace'),
+                ],
+              ),
+            ),
+            if (profile.type == ProfileType.custom)
+              const PopupMenuItem(
+                value: 'schema',
+                child: Row(
+                  children: [
+                    Icon(Icons.tune_rounded, size: 18),
+                    SizedBox(width: 8),
+                    Text('Customize Schema'),
+                  ],
+                ),
+              ),
+            PopupMenuItem(
+              value: 'clear',
+              child: Row(
+                children: [
+                  Icon(Icons.cleaning_services_rounded, size: 18, color: AppColors.statusWarning),
+                  const SizedBox(width: 8),
+                  Text('Clear ${terminology.itemsLabel}', style: const TextStyle(color: AppColors.statusWarning)),
+                ],
+              ),
+            ),
+            if (!profile.isDefault && totalProfilesCount > 1)
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.statusDanger),
+                    SizedBox(width: 8),
+                    Text('Delete Workspace', style: TextStyle(color: AppColors.statusDanger)),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        onTap: () async {
+          if (!isActive) {
+            await ref.read(profileNotifierProvider.notifier).switchProfile(profile.id);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context)
+                ..clearSnackBars()
+                ..showSnackBar(
+                  SnackBar(
+                    content: Text('Switched to "${profile.name}" workspace'),
+                    backgroundColor: AppColors.caramelizedAmber,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+            }
+          }
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -347,53 +745,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               builder: (ctx, ref, _) {
                 final profileState = ref.watch(profileNotifierProvider);
                 final activeProfile = profileState.activeProfile;
+                final allProfiles = profileState.allProfiles;
 
                 return CaneleCard(
                   padding: const EdgeInsets.all(14),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: AppColors.caramelizedAmber,
-                            borderRadius: BorderRadius.circular(10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Workspaces (${allProfiles.length})',
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                           ),
-                          child: Icon(
-                            activeProfile.type == ProfileType.games
-                                ? Icons.sports_esports_rounded
-                                : (activeProfile.type == ProfileType.custom
-                                    ? Icons.layers_rounded
-                                    : Icons.auto_stories_rounded),
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                        title: Text(
-                          activeProfile.name,
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-                        ),
-                        subtitle: Text(
-                          '${profileState.allProfiles.length} workspace(s) configured · Tap to switch',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(ctx).brightness == Brightness.dark
-                                ? AppColors.darkTextMuted
-                                : AppColors.deepCaramelMuted,
-                          ),
-                        ),
-                        trailing: const Icon(Icons.swap_horiz_rounded, color: AppColors.caramelizedAmber),
-                        onTap: () {
-                          WorkspaceSwitcherModal.show(
-                            context: ctx,
-                            activeProfile: activeProfile,
-                            profiles: profileState.allProfiles,
-                            onSelectProfile: (id) {
-                              ref.read(profileNotifierProvider.notifier).switchProfile(id);
-                            },
-                            onAddWorkspace: () {
+                          TextButton.icon(
+                            onPressed: () {
                               AddWorkspaceDialog.show(
                                 context: ctx,
                                 onCreate: ({
@@ -411,44 +778,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 },
                               );
                             },
-                          );
-                        },
-                      ),
-                      const Divider(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                AddWorkspaceDialog.show(
-                                  context: ctx,
-                                  onCreate: ({
-                                    required String name,
-                                    required ProfileType type,
-                                    String? icon,
-                                    CustomWorkspaceSchema? customSchema,
-                                  }) async {
-                                    await ref.read(profileNotifierProvider.notifier).createProfile(
-                                          name: name,
-                                          type: type,
-                                          icon: icon,
-                                          customSchema: customSchema,
-                                        );
-                                  },
-                                );
-                              },
-                              icon: const Icon(Icons.add_rounded, size: 18),
-                              label: const Text('Add Workspace'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.caramelizedAmber,
-                                side: const BorderSide(color: AppColors.caramelizedAmber),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
+                            icon: const Icon(Icons.add_rounded, size: 18),
+                            label: const Text('New'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.caramelizedAmber,
+                              visualDensity: VisualDensity.compact,
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 10),
+                      ...allProfiles.map(
+                        (p) => _buildWorkspaceSettingsTile(
+                          ctx,
+                          ref,
+                          p,
+                          activeProfile,
+                          allProfiles.length,
+                        ),
                       ),
                     ],
                   ),
@@ -716,76 +1063,93 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Data Portability & Auto-Backup Section
+            // Data Portability & Database Management Section
             Text(
-              'Data Portability & Auto-Backup',
+              'Data Portability & Database Management',
               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
-            CaneleCard(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                children: [
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.sync_lock_rounded, color: AppColors.caramelizedAmber, size: 28),
-                    title: const Text('File Hub & Auto-Backup', style: TextStyle(fontWeight: FontWeight.w700)),
-                    subtitle: const Text('Auto-backups, spreadsheets, and imports'),
-                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const ImportExportScreen()),
-                      );
-                    },
-                  ),
-                  const Divider(height: 12),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.delete_forever_rounded, color: AppColors.statusDanger),
-                    title: const Text('Wipe App Database', style: TextStyle(color: AppColors.statusDanger, fontWeight: FontWeight.w700)),
-                    subtitle: const Text('Permanently erase all books, history, custom rules, and settings'),
-                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
-                    onTap: () async {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('Wipe Complete App Database?'),
-                          content: const Text(
-                            'Are you sure you want to permanently wipe the entire database? This will delete all series, volumes, transactions, custom rules, and cadence timeline settings.\n\nThis action cannot be undone.',
-                          ),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                            ElevatedButton(
-                              onPressed: () => Navigator.pop(ctx, true),
-                              style: ElevatedButton.styleFrom(backgroundColor: AppColors.statusDanger),
-                              child: const Text('Wipe Database'),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (confirm == true) {
-                        await JsonBackupService.wipeCompleteDatabase();
-                        ref.read(seriesNotifierProvider.notifier).load();
-                        ref.read(volumesNotifierProvider.notifier).load();
-                        ref.read(transactionsNotifierProvider.notifier).load();
-                        ref.read(ruleConfigNotifierProvider.notifier).load();
-                        ref.read(rulesNotifierProvider.notifier).load();
+            Consumer(
+              builder: (ctx, ref, _) {
+                final activeProfile = ref.watch(profileNotifierProvider).activeProfile;
+                final terminology = WorkspaceTerminology(activeProfile);
 
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context)
-                            ..clearSnackBars()
-                            ..showSnackBar(
-                            const SnackBar(
-                              content: Text('App database completely wiped!'),
-                              backgroundColor: AppColors.statusDanger,
+                return CaneleCard(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.sync_lock_rounded, color: AppColors.caramelizedAmber, size: 28),
+                        title: const Text('File Hub & Auto-Backup', style: TextStyle(fontWeight: FontWeight.w700)),
+                        subtitle: const Text('Backups, spreadsheet exports, and restoration'),
+                        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const ImportExportScreen()),
+                          );
+                        },
+                      ),
+                      const Divider(height: 12),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.cleaning_services_rounded, color: AppColors.statusWarning, size: 26),
+                        title: Text(
+                          'Clear Active Workspace Items',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        subtitle: Text('Erase all ${terminology.itemsLabel.toLowerCase()} and history in "${activeProfile.name}" while keeping rules'),
+                        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                        onTap: () => _showClearWorkspaceDialog(context, activeProfile),
+                      ),
+                      const Divider(height: 12),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.delete_forever_rounded, color: AppColors.statusDanger, size: 26),
+                        title: const Text('Wipe Complete App Database', style: TextStyle(color: AppColors.statusDanger, fontWeight: FontWeight.w700)),
+                        subtitle: const Text('Permanently erase all workspaces, items, rules, and reset to fresh default'),
+                        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                        onTap: () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (dialogCtx) => AlertDialog(
+                              title: const Text('Wipe Complete App Database?'),
+                              content: const Text(
+                                'Are you sure you want to permanently wipe the entire app database across ALL workspaces?\n\n'
+                                'This will delete all books, games, custom collections, acquisition logs, rules, and custom workspaces, resetting Canelé back to a fresh install.\n\n'
+                                'This action cannot be undone.',
+                              ),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(dialogCtx, false), child: const Text('Cancel')),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.pop(dialogCtx, true),
+                                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.statusDanger),
+                                  child: const Text('Wipe Database'),
+                                ),
+                              ],
                             ),
                           );
-                        }
-                      }
-                    },
+                          if (confirm == true) {
+                            await JsonBackupService.wipeCompleteDatabase();
+                            ref.read(profileNotifierProvider.notifier).reloadAll();
+
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context)
+                                ..clearSnackBars()
+                                ..showSnackBar(
+                                  const SnackBar(
+                                    content: Text('App database completely wiped! Reset to default workspace.'),
+                                    backgroundColor: AppColors.statusDanger,
+                                  ),
+                                );
+                            }
+                          }
+                        },
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
             const SizedBox(height: 20),
 
