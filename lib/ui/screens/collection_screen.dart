@@ -6,12 +6,19 @@ import '../../core/utils/type_helper.dart';
 import '../../core/utils/uuid_generator.dart';
 import '../../models/series.dart';
 import '../../models/volume.dart';
+import '../../models/game_item.dart';
+import '../../models/profile.dart';
+import '../../providers/profile_provider.dart';
 import '../../providers/series_provider.dart';
 import '../widgets/canele_card.dart';
 import '../widgets/canele_progress_bar.dart';
 import '../widgets/add_series_sheet.dart';
+import '../widgets/add_game_sheet.dart';
+import '../widgets/game_card.dart';
+import '../widgets/games_grid_view.dart';
 import '../widgets/workspace_switcher_app_bar_title.dart';
 import 'series_detail_screen.dart';
+import 'game_detail_screen.dart';
 
 enum CollectionSortOption {
   titleAsc('Title (A → Z)', Icons.sort_by_alpha_rounded),
@@ -39,11 +46,24 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
   final _searchController = TextEditingController();
   String _selectedType = 'all';
   CollectionSortOption _sortOption = CollectionSortOption.titleAsc;
+  GameCardStyle _gameViewStyle = GameCardStyle.grid;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+  }
+
+  void _ensureTabController(int count) {
+    if (_tabController.length != count) {
+      final oldIndex = _tabController.index;
+      _tabController.dispose();
+      _tabController = TabController(
+        length: count,
+        vsync: this,
+        initialIndex: oldIndex < count ? oldIndex : 0,
+      );
+    }
   }
 
   @override
@@ -55,6 +75,70 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
 
   void _showAddSeriesDialog(BuildContext context) {
     showAddSeriesSheet(context);
+  }
+
+  Future<void> _cycleGameStatus(GameItem game) async {
+    final nextStatus = game.backlogStatus.cycleNext();
+    final updated = game.copyWith(backlogStatus: nextStatus);
+    await ref.read(seriesNotifierProvider.notifier).saveSeries(updated.toSeries());
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${game.title} is now ${nextStatus.label}!'),
+          backgroundColor: nextStatus.color,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  List<GameItem> _filterAndSortGames(List<Series> rawSeries) {
+    final query = _searchController.text.trim().toLowerCase();
+    final allGames = rawSeries.map((s) => GameItem.fromSeries(s)).toList();
+
+    final filtered = allGames.where((g) {
+      final matchesQuery = query.isEmpty ||
+          g.title.toLowerCase().contains(query) ||
+          g.tags.any((t) => t.toLowerCase().contains(query)) ||
+          g.platformInfo.displayName.toLowerCase().contains(query);
+
+      final matchesPlatform = _selectedType == 'all' ||
+          g.platform.toLowerCase() == _selectedType.toLowerCase() ||
+          g.platformInfo.displayName.toLowerCase() == _selectedType.toLowerCase();
+
+      return matchesQuery && matchesPlatform;
+    }).toList();
+
+    filtered.sort((a, b) {
+      switch (_sortOption) {
+        case CollectionSortOption.titleAsc:
+          return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+        case CollectionSortOption.titleDesc:
+          return b.title.toLowerCase().compareTo(a.title.toLowerCase());
+        case CollectionSortOption.progressDesc:
+        case CollectionSortOption.progressAsc:
+          final aRating = a.rating ?? 0.0;
+          final bRating = b.rating ?? 0.0;
+          return _sortOption == CollectionSortOption.progressDesc
+              ? bRating.compareTo(aRating)
+              : aRating.compareTo(bRating);
+        case CollectionSortOption.volumesDesc:
+        case CollectionSortOption.volumesAsc:
+          final aHours = a.playtimeHours ?? 0.0;
+          final bHours = b.playtimeHours ?? 0.0;
+          return _sortOption == CollectionSortOption.volumesDesc
+              ? bHours.compareTo(aHours)
+              : aHours.compareTo(bHours);
+        case CollectionSortOption.typeAsc:
+          final pComp = a.platformInfo.displayName.compareTo(b.platformInfo.displayName);
+          if (pComp != 0) return pComp;
+          return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+      }
+    });
+
+    return filtered;
   }
 
   List<Series> _filterAndSortSeries(List<Series> list, List<Volume> allVolumes) {
@@ -109,9 +193,23 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    final activeProfile = ref.watch(profileNotifierProvider).activeProfile;
+    final isGames = activeProfile.type == ProfileType.games;
+    _ensureTabController(isGames ? 5 : 4);
+
     final allSeries = ref.watch(seriesNotifierProvider);
     final allVolumes = ref.watch(volumesNotifierProvider);
-    final availableTypes = TypeHelper.getAllAvailableTypes(allSeries.map((s) => s.type));
+
+    final List<String> availableTypes;
+    if (isGames) {
+      final allGames = allSeries.map((s) => GameItem.fromSeries(s)).toList();
+      final platforms = allGames.map((g) => g.platformInfo.displayName).toSet().toList()..sort();
+      availableTypes = platforms.isEmpty
+          ? GamePlatform.presets.take(4).map((p) => p.displayName).toList()
+          : platforms;
+    } else {
+      availableTypes = TypeHelper.getAllAvailableTypes(allSeries.map((s) => s.type));
+    }
 
     final activeSeries = ref.watch(activeSeriesProvider);
     final wishlistSeries = ref.watch(wishlistSeriesProvider);
@@ -123,9 +221,9 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
-          physics: const NeverScrollableScrollPhysics(),
+          physics: const BouncingScrollPhysics(),
           tabAlignment: TabAlignment.start,
-          labelPadding: const EdgeInsets.symmetric(horizontal: 23),
+          labelPadding: const EdgeInsets.symmetric(horizontal: 20),
           padding: const EdgeInsets.symmetric(horizontal: 8),
           indicatorColor: AppColors.caramelizedAmber,
           indicatorSize: TabBarIndicatorSize.label,
@@ -133,12 +231,20 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
           unselectedLabelColor: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
           labelStyle: const TextStyle(fontWeight: FontWeight.w700),
           unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
-          tabs: const [
-            Tab(text: 'All'),
-            Tab(text: 'Active'),
-            Tab(text: 'Wishlist'),
-            Tab(text: 'Completed'),
-          ],
+          tabs: isGames
+              ? const [
+                  Tab(text: 'All Games'),
+                  Tab(text: 'Now Playing'),
+                  Tab(text: 'Backlog'),
+                  Tab(text: 'Beaten / 100%'),
+                  Tab(text: 'Wishlist'),
+                ]
+              : const [
+                  Tab(text: 'All'),
+                  Tab(text: 'Active'),
+                  Tab(text: 'Wishlist'),
+                  Tab(text: 'Completed'),
+                ],
         ),
       ),
       body: Column(
@@ -155,7 +261,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
                         controller: _searchController,
                         onChanged: (_) => setState(() {}),
                         decoration: InputDecoration(
-                          hintText: 'Search title or tag...',
+                          hintText: isGames ? 'Search games, tags, platforms...' : 'Search title or tag...',
                           prefixIcon: const Icon(Icons.search_rounded, size: 20),
                           suffixIcon: _searchController.text.isNotEmpty
                               ? IconButton(
@@ -171,6 +277,37 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
                       ),
                     ),
                     const SizedBox(width: 8),
+                    if (isGames) ...[
+                      InkWell(
+                        key: const Key('game_view_style_toggle_button'),
+                        onTap: () {
+                          setState(() {
+                            _gameViewStyle = _gameViewStyle == GameCardStyle.grid
+                                ? GameCardStyle.list
+                                : GameCardStyle.grid;
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppColors.darkPastryCardElevated : Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isDark ? AppColors.darkPastryBorder : AppColors.pastryCrustBorder,
+                            ),
+                          ),
+                          child: Icon(
+                            _gameViewStyle == GameCardStyle.grid
+                                ? Icons.view_list_rounded
+                                : Icons.grid_view_rounded,
+                            size: 20,
+                            color: AppColors.caramelizedAmber,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     PopupMenuButton<CollectionSortOption>(
                       tooltip: 'Sort: ${_sortOption.label}',
                       initialValue: _sortOption,
@@ -243,35 +380,118 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
 
           // Tab Views
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _SeriesListView(
-                  seriesList: _filterAndSortSeries(allSeries, allVolumes),
-                  emptyMessage: 'No books found in collection.',
-                ),
-                _SeriesListView(
-                  seriesList: _filterAndSortSeries(activeSeries, allVolumes),
-                  emptyMessage: 'No active series found.',
-                ),
-                _SeriesListView(
-                  seriesList: _filterAndSortSeries(wishlistSeries, allVolumes),
-                  emptyMessage: 'No wishlist series found.',
-                ),
-                _SeriesListView(
-                  seriesList: _filterAndSortSeries(completedSeries, allVolumes),
-                  emptyMessage: 'No completed series found.',
-                ),
-              ],
-            ),
+            child: isGames
+                ? TabBarView(
+                    controller: _tabController,
+                    children: [
+                      GamesCollectionView(
+                        games: _filterAndSortGames(allSeries),
+                        viewStyle: _gameViewStyle,
+                        emptyMessage: 'No games found in collection.',
+                        onAddGame: () => showAddGameSheet(context),
+                        onGameTap: (game) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => GameDetailScreen(gameId: game.id)),
+                          );
+                        },
+                        onStatusCycle: (game) => _cycleGameStatus(game),
+                      ),
+                      GamesCollectionView(
+                        games: _filterAndSortGames(allSeries)
+                            .where((g) => g.backlogStatus == GameBacklogStatus.playing)
+                            .toList(),
+                        viewStyle: _gameViewStyle,
+                        emptyMessage: 'No games currently in playthrough.',
+                        onAddGame: () => showAddGameSheet(context),
+                        onGameTap: (game) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => GameDetailScreen(gameId: game.id)),
+                          );
+                        },
+                        onStatusCycle: (game) => _cycleGameStatus(game),
+                      ),
+                      GamesCollectionView(
+                        games: _filterAndSortGames(allSeries)
+                            .where((g) => g.backlogStatus == GameBacklogStatus.backlog)
+                            .toList(),
+                        viewStyle: _gameViewStyle,
+                        emptyMessage: 'No games in your backlog queue.',
+                        onAddGame: () => showAddGameSheet(context),
+                        onGameTap: (game) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => GameDetailScreen(gameId: game.id)),
+                          );
+                        },
+                        onStatusCycle: (game) => _cycleGameStatus(game),
+                      ),
+                      GamesCollectionView(
+                        games: _filterAndSortGames(allSeries)
+                            .where((g) =>
+                                g.backlogStatus == GameBacklogStatus.beaten ||
+                                g.backlogStatus == GameBacklogStatus.completed)
+                            .toList(),
+                        viewStyle: _gameViewStyle,
+                        emptyMessage: 'No beaten or completed games yet.',
+                        onAddGame: () => showAddGameSheet(context),
+                        onGameTap: (game) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => GameDetailScreen(gameId: game.id)),
+                          );
+                        },
+                        onStatusCycle: (game) => _cycleGameStatus(game),
+                      ),
+                      GamesCollectionView(
+                        games: _filterAndSortGames(allSeries)
+                            .where((g) => g.backlogStatus == GameBacklogStatus.wishlist)
+                            .toList(),
+                        viewStyle: _gameViewStyle,
+                        emptyMessage: 'No wishlist games found.',
+                        onAddGame: () => showAddGameSheet(context),
+                        onGameTap: (game) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => GameDetailScreen(gameId: game.id)),
+                          );
+                        },
+                        onStatusCycle: (game) => _cycleGameStatus(game),
+                      ),
+                    ],
+                  )
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _SeriesListView(
+                        seriesList: _filterAndSortSeries(allSeries, allVolumes),
+                        emptyMessage: 'No books found in collection.',
+                      ),
+                      _SeriesListView(
+                        seriesList: _filterAndSortSeries(activeSeries, allVolumes),
+                        emptyMessage: 'No active series found.',
+                      ),
+                      _SeriesListView(
+                        seriesList: _filterAndSortSeries(wishlistSeries, allVolumes),
+                        emptyMessage: 'No wishlist series found.',
+                      ),
+                      _SeriesListView(
+                        seriesList: _filterAndSortSeries(completedSeries, allVolumes),
+                        emptyMessage: 'No completed series found.',
+                      ),
+                    ],
+                  ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddSeriesDialog(context),
+        key: const Key('add_collection_item_fab'),
+        onPressed: () {
+          if (isGames) {
+            showAddGameSheet(context);
+          } else {
+            _showAddSeriesDialog(context);
+          }
+        },
         backgroundColor: AppColors.caramelizedAmber,
         foregroundColor: Colors.white,
-        tooltip: 'Add Series',
+        tooltip: isGames ? 'Add Game' : 'Add Series',
         child: const Icon(Icons.add_rounded),
       ),
     );
