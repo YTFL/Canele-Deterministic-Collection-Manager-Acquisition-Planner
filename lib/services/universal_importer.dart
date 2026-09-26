@@ -12,6 +12,8 @@ import '../models/rule_config.dart';
 import '../models/rule_model.dart';
 import '../core/utils/currency_helper.dart';
 import 'backup_service.dart';
+import 'profile_service.dart';
+import '../models/profile.dart';
 
 enum RestoreMode {
   replaceAll,
@@ -124,6 +126,16 @@ class UniversalImporter {
 
       final data = Map<String, dynamic>.from(decoded as Map);
 
+      final isMultiWorkspace = data.containsKey('workspaces') && data['workspaces'] is Map;
+      if (isMultiWorkspace) {
+        if (mode == RestoreMode.replaceAll) {
+          return await _restoreMultiWorkspaceReplaceAll(data);
+        } else {
+          return await _restoreMultiWorkspaceMerge(data);
+        }
+      }
+
+      // Single workspace or legacy v1 backup
       if (mode == RestoreMode.replaceAll) {
         return await _restoreReplaceAll(data);
       } else {
@@ -140,20 +152,191 @@ class UniversalImporter {
     }
   }
 
+  static Future<RestoreResult> _restoreMultiWorkspaceReplaceAll(Map<String, dynamic> data) async {
+    final workspacesMap = data['workspaces'] as Map;
+    final profilesList = data['profiles'] as List?;
+
+    // Clear all existing profiles and boxes
+    for (final p in ProfileService.instance.getAllProfiles()) {
+      await HiveBoxes.clearAll(p.id);
+    }
+    await ProfileService.instance.profilesBox.clear();
+
+    // Restore profiles
+    if (profilesList != null) {
+      for (final item in profilesList) {
+        if (item is Map) {
+          final profile = Profile.fromMap(item);
+          await ProfileService.instance.profilesBox.put(profile.id, profile.toMap());
+        }
+      }
+    }
+
+    int totalSeries = 0;
+    int totalVolumes = 0;
+    int totalTx = 0;
+    int totalRules = 0;
+
+    for (final entry in workspacesMap.entries) {
+      if (entry.value is! Map) continue;
+      final profileId = entry.key.toString();
+      final wsData = entry.value as Map;
+
+      await HiveBoxes.preOpenBoxesForProfile(profileId);
+      final sBox = HiveBoxes.getSeriesBox(profileId);
+      final vBox = HiveBoxes.getVolumesBox(profileId);
+      final tBox = HiveBoxes.getTransactionsBox(profileId);
+      final cBox = HiveBoxes.getRuleConfigBox(profileId);
+      final rBox = HiveBoxes.getRulesBox(profileId);
+
+      await sBox.clear();
+      await vBox.clear();
+      await tBox.clear();
+      await cBox.clear();
+      await rBox.clear();
+
+      // Series
+      if (wsData.containsKey('series') && wsData['series'] is List) {
+        for (final item in wsData['series'] as List) {
+          if (item is Map) {
+            final s = Series.fromMap(item);
+            await sBox.put(s.id, s.toMap());
+            totalSeries++;
+          }
+        }
+      }
+
+      // Volumes
+      if (wsData.containsKey('volumes') && wsData['volumes'] is List) {
+        for (final item in wsData['volumes'] as List) {
+          if (item is Map) {
+            final v = Volume.fromMap(item);
+            await vBox.put(v.id, v.toMap());
+            totalVolumes++;
+          }
+        }
+      }
+
+      // Transactions
+      if (wsData.containsKey('transactions') && wsData['transactions'] is List) {
+        for (final item in wsData['transactions'] as List) {
+          if (item is Map) {
+            final t = PurchaseTransaction.fromMap(item);
+            await tBox.put(t.id, t.toMap());
+            totalTx++;
+          }
+        }
+      }
+
+      // RuleConfig
+      if (wsData.containsKey('ruleConfig') && wsData['ruleConfig'] is Map) {
+        final r = RuleConfig.fromMap(wsData['ruleConfig'] as Map);
+        await cBox.put(r.id, r.toMap());
+      } else {
+        final def = RuleConfig.createDefault();
+        await cBox.put(def.id, def.toMap());
+      }
+
+      // Rules / Passes
+      final rulesList = (wsData['rules'] is List)
+          ? (wsData['rules'] as List)
+          : (wsData['passes'] is List ? wsData['passes'] as List : null);
+      if (rulesList != null) {
+        for (final item in rulesList) {
+          if (item is Map) {
+            final r = RuleModel.fromMap(item);
+            await rBox.put(r.id, r.toMap());
+            totalRules++;
+          }
+        }
+      }
+    }
+
+    // Resolve active profile
+    final allProfiles = ProfileService.instance.getAllProfiles();
+    final targetActiveId = data['activeProfileId']?.toString();
+    final effectiveActiveId = (targetActiveId != null && allProfiles.any((p) => p.id == targetActiveId))
+        ? targetActiveId
+        : (allProfiles.isNotEmpty ? allProfiles.first.id : ProfileService.defaultBooksProfileId);
+
+    await ProfileService.instance.switchProfile(effectiveActiveId);
+    await DatabaseMigrator.runMigrations(effectiveActiveId);
+
+    return RestoreResult(
+      success: true,
+      seriesCount: totalSeries,
+      volumesCount: totalVolumes,
+      transactionsCount: totalTx,
+      rulesCount: totalRules,
+    );
+  }
+
+  static Future<RestoreResult> _restoreMultiWorkspaceMerge(Map<String, dynamic> data) async {
+    final workspacesMap = data['workspaces'] as Map;
+    final profilesList = data['profiles'] as List?;
+
+    // Ensure profiles exist
+    if (profilesList != null) {
+      for (final item in profilesList) {
+        if (item is Map) {
+          final p = Profile.fromMap(item);
+          if (!ProfileService.instance.profilesBox.containsKey(p.id)) {
+            await ProfileService.instance.profilesBox.put(p.id, p.toMap());
+          }
+        }
+      }
+    }
+
+    int totalSeries = 0;
+    int totalVolumes = 0;
+    int totalTx = 0;
+    int totalRules = 0;
+
+    for (final entry in workspacesMap.entries) {
+      if (entry.value is! Map) continue;
+      final profileId = entry.key.toString();
+      final wsData = entry.value as Map;
+
+      await HiveBoxes.preOpenBoxesForProfile(profileId);
+      final res = await _mergeWorkspaceData(profileId, wsData);
+      totalSeries += res.$1;
+      totalVolumes += res.$2;
+      totalTx += res.$3;
+      totalRules += res.$4;
+    }
+
+    await DatabaseMigrator.runMigrations(ProfileService.instance.activeProfileId);
+
+    return RestoreResult(
+      success: true,
+      seriesCount: totalSeries,
+      volumesCount: totalVolumes,
+      transactionsCount: totalTx,
+      rulesCount: totalRules,
+    );
+  }
+
   static Future<RestoreResult> _restoreReplaceAll(Map<String, dynamic> data) async {
-    await HiveBoxes.clearAll();
+    final activeProfileId = ProfileService.instance.activeProfileId;
+    await HiveBoxes.clearAll(activeProfileId);
 
     int seriesCount = 0;
     int volumesCount = 0;
     int txCount = 0;
     int rulesCount = 0;
 
+    final sBox = HiveBoxes.getSeriesBox(activeProfileId);
+    final vBox = HiveBoxes.getVolumesBox(activeProfileId);
+    final tBox = HiveBoxes.getTransactionsBox(activeProfileId);
+    final cBox = HiveBoxes.getRuleConfigBox(activeProfileId);
+    final rBox = HiveBoxes.getRulesBox(activeProfileId);
+
     // Series
     if (data.containsKey('series') && data['series'] is List) {
       for (final item in data['series'] as List) {
         if (item is Map) {
           final s = Series.fromMap(item);
-          await HiveBoxes.seriesBox.put(s.id, s.toMap());
+          await sBox.put(s.id, s.toMap());
           seriesCount++;
         }
       }
@@ -164,7 +347,7 @@ class UniversalImporter {
       for (final item in data['volumes'] as List) {
         if (item is Map) {
           final v = Volume.fromMap(item);
-          await HiveBoxes.volumesBox.put(v.id, v.toMap());
+          await vBox.put(v.id, v.toMap());
           volumesCount++;
         }
       }
@@ -175,7 +358,7 @@ class UniversalImporter {
       for (final item in data['transactions'] as List) {
         if (item is Map) {
           final t = PurchaseTransaction.fromMap(item);
-          await HiveBoxes.transactionsBox.put(t.id, t.toMap());
+          await tBox.put(t.id, t.toMap());
           txCount++;
         }
       }
@@ -184,10 +367,10 @@ class UniversalImporter {
     // RuleConfig
     if (data.containsKey('ruleConfig') && data['ruleConfig'] is Map) {
       final r = RuleConfig.fromMap(data['ruleConfig'] as Map);
-      await HiveBoxes.ruleConfigBox.put(r.id, r.toMap());
+      await cBox.put(r.id, r.toMap());
     } else {
       final defaultConfig = RuleConfig.createDefault();
-      await HiveBoxes.ruleConfigBox.put(defaultConfig.id, defaultConfig.toMap());
+      await cBox.put(defaultConfig.id, defaultConfig.toMap());
     }
 
     // Rules & Passes
@@ -199,14 +382,14 @@ class UniversalImporter {
       for (final item in rulesList) {
         if (item is Map) {
           final r = RuleModel.fromMap(item);
-          await HiveBoxes.rulesBox.put(r.id, r.toMap());
+          await rBox.put(r.id, r.toMap());
           rulesCount++;
         }
       }
     }
 
     // Run database migrations to ensure full compatibility
-    await DatabaseMigrator.runMigrations();
+    await DatabaseMigrator.runMigrations(activeProfileId);
 
     return RestoreResult(
       success: true,
@@ -218,13 +401,33 @@ class UniversalImporter {
   }
 
   static Future<RestoreResult> _restoreMergeAndKeepNewest(Map<String, dynamic> data) async {
+    final activeProfileId = ProfileService.instance.activeProfileId;
+    final res = await _mergeWorkspaceData(activeProfileId, data);
+    await DatabaseMigrator.runMigrations(activeProfileId);
+
+    return RestoreResult(
+      success: true,
+      seriesCount: res.$1,
+      volumesCount: res.$2,
+      transactionsCount: res.$3,
+      rulesCount: res.$4,
+    );
+  }
+
+  static Future<(int, int, int, int)> _mergeWorkspaceData(String profileId, Map data) async {
     int seriesCount = 0;
     int volumesCount = 0;
     int txCount = 0;
     int rulesCount = 0;
 
+    final sBox = HiveBoxes.getSeriesBox(profileId);
+    final vBox = HiveBoxes.getVolumesBox(profileId);
+    final tBox = HiveBoxes.getTransactionsBox(profileId);
+    final cBox = HiveBoxes.getRuleConfigBox(profileId);
+    final rBox = HiveBoxes.getRulesBox(profileId);
+
     // Load existing items
-    final existingSeries = HiveBoxes.seriesBox.values
+    final existingSeries = sBox.values
         .map((e) => Series.fromMap(e))
         .toList();
     final titleToSeriesMap = <String, Series>{};
@@ -246,7 +449,7 @@ class UniversalImporter {
         final match = titleToSeriesMap[lowerTitle] ?? idToSeriesMap[incoming.id];
         if (match == null) {
           // New Series
-          await HiveBoxes.seriesBox.put(incoming.id, incoming.toMap());
+          await sBox.put(incoming.id, incoming.toMap());
           titleToSeriesMap[lowerTitle] = incoming;
           idToSeriesMap[incoming.id] = incoming;
           seriesIdRemap[incoming.id] = incoming.id;
@@ -254,7 +457,6 @@ class UniversalImporter {
         } else {
           // Existing Series: Keep target ID
           seriesIdRemap[incoming.id] = match.id;
-          // Merge metadata
           final mergedMeta = Map<String, dynamic>.from(match.customMetadata)
             ..addAll(incoming.customMetadata);
           final mergedTags = {...match.tags, ...incoming.tags}.toList();
@@ -263,13 +465,13 @@ class UniversalImporter {
             customMetadata: mergedMeta,
             totalVolumesReleased: incoming.totalVolumesReleased ?? match.totalVolumesReleased,
           );
-          await HiveBoxes.seriesBox.put(match.id, mergedSeries.toMap());
+          await sBox.put(match.id, mergedSeries.toMap());
         }
       }
     }
 
     // 2. Merge Volumes
-    final existingVolumes = HiveBoxes.volumesBox.values
+    final existingVolumes = vBox.values
         .map((e) => Volume.fromMap(e))
         .toList();
     final volumeKeyMap = <String, Volume>{}; // "$seriesId-$volumeNumber" -> Volume
@@ -290,13 +492,12 @@ class UniversalImporter {
 
         if (existingVol == null) {
           final newVol = incomingVol.copyWith(seriesId: targetSeriesId);
-          await HiveBoxes.volumesBox.put(newVol.id, newVol.toMap());
+          await vBox.put(newVol.id, newVol.toMap());
           volumeKeyMap[key] = newVol;
           volumeIdRemap[incomingVol.id] = newVol.id;
           volumesCount++;
         } else {
           volumeIdRemap[incomingVol.id] = existingVol.id;
-          // If incoming is owned and existing is not, or incoming has newer release date
           final updated = existingVol.copyWith(
             isOwned: existingVol.isOwned || incomingVol.isOwned,
             isGift: existingVol.isGift || incomingVol.isGift,
@@ -305,14 +506,14 @@ class UniversalImporter {
                 : incomingVol.availability,
             releaseDate: existingVol.releaseDate ?? incomingVol.releaseDate,
           );
-          await HiveBoxes.volumesBox.put(existingVol.id, updated.toMap());
+          await vBox.put(existingVol.id, updated.toMap());
         }
       }
     }
 
     // 3. Merge Transactions
-    final existingTxIds = HiveBoxes.transactionsBox.keys.toSet();
-    final existingTxVolumeIds = HiveBoxes.transactionsBox.values
+    final existingTxIds = tBox.keys.toSet();
+    final existingTxVolumeIds = tBox.values
         .map((e) => e['volumeId']?.toString())
         .where((id) => id != null)
         .toSet();
@@ -323,10 +524,9 @@ class UniversalImporter {
         final incomingTx = PurchaseTransaction.fromMap(item);
         final targetVolId = volumeIdRemap[incomingTx.volumeId] ?? incomingTx.volumeId;
 
-        // If transaction ID is unique and volume doesn't already have a transaction
         if (!existingTxIds.contains(incomingTx.id) && !existingTxVolumeIds.contains(targetVolId)) {
           final newTx = incomingTx.copyWith(volumeId: targetVolId);
-          await HiveBoxes.transactionsBox.put(newTx.id, newTx.toMap());
+          await tBox.put(newTx.id, newTx.toMap());
           existingTxIds.add(newTx.id);
           existingTxVolumeIds.add(targetVolId);
           txCount++;
@@ -337,7 +537,7 @@ class UniversalImporter {
     // 4. Merge RuleConfig
     if (data.containsKey('ruleConfig') && data['ruleConfig'] is Map) {
       final incomingConfig = RuleConfig.fromMap(data['ruleConfig'] as Map);
-      final currentMap = HiveBoxes.ruleConfigBox.get('global_config');
+      final currentMap = cBox.get('global_config');
       final currentConfig = currentMap != null
           ? RuleConfig.fromMap(currentMap)
           : RuleConfig.createDefault();
@@ -354,11 +554,11 @@ class UniversalImporter {
         noBookMonths: mergedNoBookMonths,
         customBonusLedger: mergedLedger,
       );
-      await HiveBoxes.ruleConfigBox.put(mergedConfig.id, mergedConfig.toMap());
+      await cBox.put(mergedConfig.id, mergedConfig.toMap());
     }
 
     // 5. Merge Rules
-    final existingRuleNames = HiveBoxes.rulesBox.values
+    final existingRuleNames = rBox.values
         .map((e) => e['name']?.toString().toLowerCase())
         .where((n) => n != null)
         .toSet();
@@ -368,28 +568,20 @@ class UniversalImporter {
         : (data['passes'] is List ? data['passes'] as List : null);
 
     if (rulesList != null) {
-      int nextPriority = HiveBoxes.rulesBox.length;
+      int nextPriority = rBox.length;
       for (final item in rulesList) {
         if (item is! Map) continue;
         final r = RuleModel.fromMap(item);
         if (!existingRuleNames.contains(r.name.toLowerCase())) {
           final toSave = r.copyWith(priorityOrder: nextPriority++);
-          await HiveBoxes.rulesBox.put(toSave.id, toSave.toMap());
+          await rBox.put(toSave.id, toSave.toMap());
           existingRuleNames.add(r.name.toLowerCase());
           rulesCount++;
         }
       }
     }
 
-    await DatabaseMigrator.runMigrations();
-
-    return RestoreResult(
-      success: true,
-      seriesCount: seriesCount,
-      volumesCount: volumesCount,
-      transactionsCount: txCount,
-      rulesCount: rulesCount,
-    );
+    return (seriesCount, volumesCount, txCount, rulesCount);
   }
 
   /// Parse from CSV string (Generic, Goodreads, StoryGraph)

@@ -119,6 +119,12 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
     }
   }
 
+  /// Forces a resync from ProfileService and reloads all Riverpod stores
+  void reloadAll() {
+    _syncFromService();
+    _reloadStores();
+  }
+
   @override
   void dispose() {
     _service.profilesListNotifier.removeListener(_syncFromService);

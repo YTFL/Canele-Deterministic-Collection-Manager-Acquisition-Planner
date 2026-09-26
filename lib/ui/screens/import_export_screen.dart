@@ -9,6 +9,7 @@ import '../../providers/backup_provider.dart';
 import '../../providers/quota_provider.dart';
 import '../../providers/rule_provider.dart';
 import '../../providers/series_provider.dart';
+import '../../providers/profile_provider.dart';
 import '../../services/universal_importer.dart';
 import '../widgets/backup_folder_card.dart';
 import '../widgets/canele_card.dart';
@@ -212,6 +213,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
       final result = await UniversalImporter.restoreFromJson(jsonString, mode: mode);
 
       if (result.success) {
+        ref.read(profileNotifierProvider.notifier).reloadAll();
         ref.read(seriesNotifierProvider.notifier).load();
         ref.read(volumesNotifierProvider.notifier).load();
         ref.read(transactionsNotifierProvider.notifier).load();

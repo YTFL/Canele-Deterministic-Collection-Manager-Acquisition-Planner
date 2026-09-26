@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../services/universal_exporter.dart';
+import '../../services/profile_service.dart';
 
 enum ExportType {
   fullState,
@@ -33,6 +34,7 @@ class ExportOptionsSheet extends StatefulWidget {
 class _ExportOptionsSheetState extends State<ExportOptionsSheet> {
   late ExportType _exportType;
   late FileFormat _fileFormat;
+  bool _exportAllWorkspaces = true;
   bool _isExporting = false;
 
   @override
@@ -65,39 +67,45 @@ class _ExportOptionsSheetState extends State<ExportOptionsSheet> {
 
     try {
       final timeStamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final activeProfile = ProfileService.instance.activeProfile;
 
       switch (_exportType) {
         case ExportType.fullState:
-          final jsonString = UniversalExporter.exportFullAppStateToJson(indent: true);
+          final specificId = _exportAllWorkspaces ? null : activeProfile.id;
+          final jsonString = UniversalExporter.exportFullAppStateToJson(indent: true, specificProfileId: specificId);
           final ext = _fileFormat == FileFormat.canele ? 'canele' : 'json';
-          final fileName = 'canele_backup_$timeStamp.$ext';
+          final prefix = _exportAllWorkspaces
+              ? 'canele_full_backup'
+              : 'canele_${activeProfile.name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}';
+          final fileName = '${prefix}_$timeStamp.$ext';
           final bytes = utf8.encode(jsonString);
 
           await UniversalExporter.shareExportedFile(
             bytes: bytes,
             fileName: fileName,
-            subject: 'Canelé Full Database Backup',
+            subject: _exportAllWorkspaces ? 'Canelé Full Database Backup' : 'Canelé Workspace Backup (${activeProfile.name})',
             text: 'Canelé offline state backup ($fileName)',
           );
           break;
 
         case ExportType.collectionSpreadsheet:
+          final prefix = 'canele_${activeProfile.name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}';
           if (_fileFormat == FileFormat.csv) {
-            final csvStr = UniversalExporter.exportCollectionToCsv();
-            final fileName = 'canele_collection_$timeStamp.csv';
+            final csvStr = UniversalExporter.exportCollectionToCsv(profile: activeProfile);
+            final fileName = '${prefix}_$timeStamp.csv';
             final bytes = utf8.encode(csvStr);
             await UniversalExporter.shareExportedFile(
               bytes: bytes,
               fileName: fileName,
-              subject: 'Canelé Collection Spreadsheet (CSV)',
+              subject: 'Canelé Collection Spreadsheet (${activeProfile.name} - CSV)',
             );
           } else {
-            final bytes = UniversalExporter.exportCollectionToXlsx();
-            final fileName = 'canele_collection_$timeStamp.xlsx';
+            final bytes = UniversalExporter.exportCollectionToXlsx(profile: activeProfile);
+            final fileName = '${prefix}_$timeStamp.xlsx';
             await UniversalExporter.shareExportedFile(
               bytes: bytes,
               fileName: fileName,
-              subject: 'Canelé Collection Spreadsheet (Excel)',
+              subject: 'Canelé Collection Spreadsheet (${activeProfile.name} - Excel)',
             );
           }
           break;
@@ -131,7 +139,9 @@ class _ExportOptionsSheetState extends State<ExportOptionsSheet> {
   }
 
   void _copyToClipboard() {
-    final jsonString = UniversalExporter.exportFullAppStateToJson(indent: true);
+    final activeProfile = ProfileService.instance.activeProfile;
+    final specificId = _exportAllWorkspaces ? null : activeProfile.id;
+    final jsonString = UniversalExporter.exportFullAppStateToJson(indent: true, specificProfileId: specificId);
     Clipboard.setData(ClipboardData(text: jsonString));
     Navigator.pop(context);
     ScaffoldMessenger.of(context)
@@ -145,6 +155,7 @@ class _ExportOptionsSheetState extends State<ExportOptionsSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final activeProfile = ProfileService.instance.activeProfile;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -208,6 +219,31 @@ class _ExportOptionsSheetState extends State<ExportOptionsSheet> {
             },
           ),
           const SizedBox(height: 16),
+
+          // Workspace Scope Selection (for Full State)
+          if (_exportType == ExportType.fullState) ...[
+            Text(
+              'Backup Scope',
+              style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            SegmentedButton<bool>(
+              showSelectedIcon: false,
+              segments: [
+                const ButtonSegment(
+                  value: true,
+                  label: Text('All Workspaces', style: TextStyle(fontSize: 12)),
+                ),
+                ButtonSegment(
+                  value: false,
+                  label: Text('Only "${activeProfile.name}"', style: const TextStyle(fontSize: 12)),
+                ),
+              ],
+              selected: {_exportAllWorkspaces},
+              onSelectionChanged: (set) => setState(() => _exportAllWorkspaces = set.first),
+            ),
+            const SizedBox(height: 16),
+          ],
 
           // Format Selection
           Text(

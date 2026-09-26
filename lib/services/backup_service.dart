@@ -8,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../core/database/hive_boxes.dart';
 import '../models/backup_metadata.dart';
 import 'universal_exporter.dart';
+import 'profile_service.dart';
 
 typedef BackupMetadataCallback = void Function(BackupMetadata metadata);
 
@@ -135,12 +136,24 @@ class BackupService {
     }
 
     try {
-      _subscriptions.add(HiveBoxes.seriesBox.watch().listen(onMutation));
-      _subscriptions.add(HiveBoxes.volumesBox.watch().listen(onMutation));
-      _subscriptions.add(HiveBoxes.transactionsBox.watch().listen(onMutation));
-      _subscriptions.add(HiveBoxes.rulesBox.watch().listen(onMutation));
-      _subscriptions.add(HiveBoxes.ruleConfigBox.watch().listen(onMutation));
-      debugPrint('[BackupService] Active and listening to Hive box mutations.');
+      if (ProfileService.instance.profilesBox.isOpen) {
+        _subscriptions.add(ProfileService.instance.profilesBox.watch().listen(onMutation));
+      }
+
+      for (final p in ProfileService.instance.getAllProfiles()) {
+        final s = HiveBoxes.getSeriesBox(p.id);
+        final v = HiveBoxes.getVolumesBox(p.id);
+        final t = HiveBoxes.getTransactionsBox(p.id);
+        final r = HiveBoxes.getRulesBox(p.id);
+        final c = HiveBoxes.getRuleConfigBox(p.id);
+
+        if (s.isOpen) _subscriptions.add(s.watch().listen(onMutation));
+        if (v.isOpen) _subscriptions.add(v.watch().listen(onMutation));
+        if (t.isOpen) _subscriptions.add(t.watch().listen(onMutation));
+        if (r.isOpen) _subscriptions.add(r.watch().listen(onMutation));
+        if (c.isOpen) _subscriptions.add(c.watch().listen(onMutation));
+      }
+      debugPrint('[BackupService] Active and listening to workspace Hive box mutations.');
     } catch (e) {
       debugPrint('[BackupService] Error starting Hive watchers: $e');
     }
