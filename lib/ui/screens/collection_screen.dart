@@ -16,6 +16,10 @@ import '../widgets/add_series_sheet.dart';
 import '../widgets/add_game_sheet.dart';
 import '../widgets/game_card.dart';
 import '../widgets/games_grid_view.dart';
+import '../widgets/custom_item_card.dart';
+import '../widgets/add_custom_item_sheet.dart';
+import '../../models/custom_item.dart';
+import '../../core/utils/workspace_terminology.dart';
 import '../widgets/workspace_switcher_app_bar_title.dart';
 import 'series_detail_screen.dart';
 import 'game_detail_screen.dart';
@@ -188,6 +192,171 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
     return filtered;
   }
 
+  Future<void> _cycleCustomStatus(CustomItem item, Profile profile) async {
+    final available = profile.terms.availableStatuses;
+    if (available.isEmpty) return;
+
+    final currentIndex = available.indexWhere((s) => s.key.toLowerCase() == item.status.toLowerCase());
+    final nextStatus = currentIndex >= 0 && currentIndex < available.length - 1
+        ? available[currentIndex + 1]
+        : available.first;
+
+    final updated = item.copyWith(status: nextStatus.key);
+    await ref.read(seriesNotifierProvider.notifier).saveSeries(updated.toSeries());
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${item.title} is now ${nextStatus.label}!'),
+          backgroundColor: nextStatus.color,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  List<CustomItem> _filterAndSortCustomItems(List<Series> rawSeries) {
+    final query = _searchController.text.trim().toLowerCase();
+    final allCustom = rawSeries.map((s) => CustomItem.fromSeries(s)).toList();
+
+    var filtered = allCustom.where((item) {
+      if (query.isEmpty) return true;
+      final matchTitle = item.title.toLowerCase().contains(query);
+      final matchGroup = item.groupTitle?.toLowerCase().contains(query) ?? false;
+      final matchEdition = item.edition?.toLowerCase().contains(query) ?? false;
+      final matchPlatform = item.platform?.toLowerCase().contains(query) ?? false;
+      final matchTags = item.tags.any((t) => t.toLowerCase().contains(query));
+      return matchTitle || matchGroup || matchEdition || matchPlatform || matchTags;
+    }).toList();
+
+    if (_selectedType != 'all') {
+      filtered = filtered.where((item) {
+        return item.platform?.toLowerCase() == _selectedType.toLowerCase() ||
+               item.edition?.toLowerCase() == _selectedType.toLowerCase();
+      }).toList();
+    }
+
+    filtered.sort((a, b) {
+      switch (_sortOption) {
+        case CollectionSortOption.titleAsc:
+          return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+        case CollectionSortOption.titleDesc:
+          return b.title.toLowerCase().compareTo(a.title.toLowerCase());
+        default:
+          return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+      }
+    });
+
+    return filtered;
+  }
+
+  Widget _buildCustomItemsView(
+    BuildContext context,
+    Profile profile,
+    List<CustomItem> items, {
+    required String emptyMessage,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final terms = profile.terms;
+
+    if (items.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(28.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkPastryCardElevated : AppColors.pastryCrustLight,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isDark ? AppColors.darkPastryBorder : AppColors.pastryCrustBorder,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.layers_rounded,
+                  size: 32,
+                  color: AppColors.caramelizedAmber,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                emptyMessage,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () => showAddCustomItemSheet(context, profile),
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: Text('Add ${terms.itemLabel}'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.caramelizedAmber,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_gameViewStyle == GameCardStyle.list) {
+      return ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        itemCount: items.length,
+        itemBuilder: (ctx, index) {
+          final item = items[index];
+          return CustomItemCard(
+            item: item,
+            profile: profile,
+            style: CustomCardStyle.list,
+            onTap: () => showAddCustomItemSheet(context, profile, existingItem: item),
+            onStatusCycle: () => _cycleCustomStatus(item, profile),
+          );
+        },
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth > 900
+            ? 5
+            : (constraints.maxWidth > 600 ? 3 : 2);
+
+        return GridView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            childAspectRatio: 0.75,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+          ),
+          itemCount: items.length,
+          itemBuilder: (ctx, index) {
+            final item = items[index];
+            return CustomItemCard(
+              item: item,
+              profile: profile,
+              style: CustomCardStyle.grid,
+              onTap: () => showAddCustomItemSheet(context, profile, existingItem: item),
+              onStatusCycle: () => _cycleCustomStatus(item, profile),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -195,7 +364,12 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
 
     final activeProfile = ref.watch(profileNotifierProvider).activeProfile;
     final isGames = activeProfile.type == ProfileType.games;
-    _ensureTabController(isGames ? 5 : 4);
+    final isCustom = activeProfile.type == ProfileType.custom;
+    final terms = activeProfile.terms;
+
+    final customStatuses = isCustom ? terms.availableStatuses : <CustomStatusDefinition>[];
+    final tabCount = isGames ? 5 : (isCustom ? 1 + customStatuses.length : 4);
+    _ensureTabController(tabCount);
 
     final allSeries = ref.watch(seriesNotifierProvider);
     final allVolumes = ref.watch(volumesNotifierProvider);
@@ -207,6 +381,16 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
       availableTypes = platforms.isEmpty
           ? GamePlatform.presets.take(4).map((p) => p.displayName).toList()
           : platforms;
+    } else if (isCustom) {
+      final allCustom = allSeries.map((s) => CustomItem.fromSeries(s)).toList();
+      final categories = allCustom
+          .map((c) => c.platform)
+          .whereType<String>()
+          .where((p) => p.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+      availableTypes = categories;
     } else {
       availableTypes = TypeHelper.getAllAvailableTypes(allSeries.map((s) => s.type));
     }
@@ -239,12 +423,17 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
                   Tab(text: 'Beaten / 100%'),
                   Tab(text: 'Wishlist'),
                 ]
-              : const [
-                  Tab(text: 'All'),
-                  Tab(text: 'Active'),
-                  Tab(text: 'Wishlist'),
-                  Tab(text: 'Completed'),
-                ],
+              : (isCustom
+                  ? [
+                      Tab(text: 'All ${terms.itemsLabel}'),
+                      for (final s in customStatuses) Tab(text: s.label),
+                    ]
+                  : const [
+                      Tab(text: 'All'),
+                      Tab(text: 'Active'),
+                      Tab(text: 'Wishlist'),
+                      Tab(text: 'Completed'),
+                    ]),
         ),
       ),
       body: Column(
@@ -261,7 +450,11 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
                         controller: _searchController,
                         onChanged: (_) => setState(() {}),
                         decoration: InputDecoration(
-                          hintText: isGames ? 'Search games, tags, platforms...' : 'Search title or tag...',
+                          hintText: isGames
+                              ? 'Search games, tags, platforms...'
+                              : (isCustom
+                                  ? 'Search ${terms.itemsLabel.toLowerCase()}, tags...'
+                                  : 'Search title or tag...'),
                           prefixIcon: const Icon(Icons.search_rounded, size: 20),
                           suffixIcon: _searchController.text.isNotEmpty
                               ? IconButton(
@@ -277,7 +470,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
                       ),
                     ),
                     const SizedBox(width: 8),
-                    if (isGames) ...[
+                    if (isGames || isCustom) ...[
                       InkWell(
                         key: const Key('game_view_style_toggle_button'),
                         onTap: () {
@@ -456,27 +649,48 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
                       ),
                     ],
                   )
-                : TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _SeriesListView(
-                        seriesList: _filterAndSortSeries(allSeries, allVolumes),
-                        emptyMessage: 'No books found in collection.',
-                      ),
-                      _SeriesListView(
-                        seriesList: _filterAndSortSeries(activeSeries, allVolumes),
-                        emptyMessage: 'No active series found.',
-                      ),
-                      _SeriesListView(
-                        seriesList: _filterAndSortSeries(wishlistSeries, allVolumes),
-                        emptyMessage: 'No wishlist series found.',
-                      ),
-                      _SeriesListView(
-                        seriesList: _filterAndSortSeries(completedSeries, allVolumes),
-                        emptyMessage: 'No completed series found.',
-                      ),
-                    ],
-                  ),
+                : (isCustom
+                    ? TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _buildCustomItemsView(
+                            context,
+                            activeProfile,
+                            _filterAndSortCustomItems(allSeries),
+                            emptyMessage: 'No ${terms.itemsLabel.toLowerCase()} found in collection.',
+                          ),
+                          for (final s in customStatuses)
+                            _buildCustomItemsView(
+                              context,
+                              activeProfile,
+                              _filterAndSortCustomItems(allSeries)
+                                  .where((item) => item.status.toLowerCase() == s.key.toLowerCase())
+                                  .toList(),
+                              emptyMessage: 'No ${terms.itemsLabel.toLowerCase()} in ${s.label}.',
+                            ),
+                        ],
+                      )
+                    : TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _SeriesListView(
+                            seriesList: _filterAndSortSeries(allSeries, allVolumes),
+                            emptyMessage: 'No books found in collection.',
+                          ),
+                          _SeriesListView(
+                            seriesList: _filterAndSortSeries(activeSeries, allVolumes),
+                            emptyMessage: 'No active series found.',
+                          ),
+                          _SeriesListView(
+                            seriesList: _filterAndSortSeries(wishlistSeries, allVolumes),
+                            emptyMessage: 'No wishlist series found.',
+                          ),
+                          _SeriesListView(
+                            seriesList: _filterAndSortSeries(completedSeries, allVolumes),
+                            emptyMessage: 'No completed series found.',
+                          ),
+                        ],
+                      )),
           ),
         ],
       ),
@@ -485,13 +699,17 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
         onPressed: () {
           if (isGames) {
             showAddGameSheet(context);
+          } else if (isCustom) {
+            showAddCustomItemSheet(context, activeProfile);
           } else {
             _showAddSeriesDialog(context);
           }
         },
         backgroundColor: AppColors.caramelizedAmber,
         foregroundColor: Colors.white,
-        tooltip: isGames ? 'Add Game' : 'Add Series',
+        tooltip: isGames
+            ? 'Add Game'
+            : (isCustom ? 'Add ${terms.itemLabel}' : 'Add Series'),
         child: const Icon(Icons.add_rounded),
       ),
     );

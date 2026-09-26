@@ -15,6 +15,9 @@ import '../widgets/quota_status_card.dart';
 import '../widgets/recommendation_slot_card.dart';
 import '../widgets/log_transaction_sheet.dart';
 import '../widgets/add_game_sheet.dart';
+import '../widgets/add_custom_item_sheet.dart';
+import '../../models/custom_item.dart';
+import '../../core/utils/workspace_terminology.dart';
 import 'series_detail_screen.dart';
 import 'game_detail_screen.dart';
 import 'stats_screen.dart';
@@ -451,6 +454,314 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildCustomDashboard(BuildContext context, WidgetRef ref, Profile profile, bool isDark, List<Series> allSeries) {
+    final theme = Theme.of(context);
+    final terms = profile.terms;
+    final allCustom = allSeries.map((s) => CustomItem.fromSeries(s)).toList();
+    final availableStatuses = terms.availableStatuses;
+
+    // Group items by status
+    final statusMap = <String, List<CustomItem>>{};
+    for (final st in availableStatuses) {
+      statusMap[st.key] = [];
+    }
+    for (final item in allCustom) {
+      statusMap.putIfAbsent(item.status, () => []).add(item);
+    }
+
+    final totalItems = allCustom.length;
+    final isPriceOn = terms.isFieldEnabled('price');
+    final totalValue = isPriceOn
+        ? allCustom.fold<double>(0.0, (sum, item) => sum + (item.price ?? 0.0))
+        : 0.0;
+
+    // Pick top statuses for metric cards
+    final primaryStatus = availableStatuses.length > 2
+        ? availableStatuses[2]
+        : (availableStatuses.isNotEmpty ? availableStatuses.last : null);
+    final secondaryStatus = availableStatuses.isNotEmpty ? availableStatuses.first : null;
+
+    final primaryCount = primaryStatus != null ? (statusMap[primaryStatus.key]?.length ?? 0) : 0;
+    final secondaryCount = secondaryStatus != null ? (statusMap[secondaryStatus.key]?.length ?? 0) : 0;
+    final completionRatio = totalItems > 0 ? (primaryCount / totalItems) : 0.0;
+
+    // Distinct groups/creators
+    final groupCount = allCustom
+        .map((i) => i.groupTitle)
+        .where((g) => g != null && g.trim().isNotEmpty)
+        .toSet()
+        .length;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. Metric Header Row 1
+          Row(
+            children: [
+              Expanded(
+                child: _HeaderMetricCard(
+                  label: 'Total ${terms.itemsLabel}',
+                  value: '$totalItems',
+                  icon: Icons.category_rounded,
+                  subtitle: totalValue > 0 ? '\$${totalValue.toStringAsFixed(0)} catalog value' : 'Catalog size',
+                  onTap: () {},
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _HeaderMetricCard(
+                  label: primaryStatus?.label ?? 'Completed',
+                  value: '$primaryCount',
+                  icon: primaryStatus?.icon ?? Icons.check_circle_outline_rounded,
+                  subtitle: '${(completionRatio * 100).toStringAsFixed(0)}% of total',
+                  onTap: () {},
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Metric Header Row 2
+          Row(
+            children: [
+              if (secondaryStatus != null)
+                Expanded(
+                  child: _HeaderMetricCard(
+                    label: secondaryStatus.label,
+                    value: '$secondaryCount',
+                    icon: secondaryStatus.icon,
+                    subtitle: 'Pending / Planned',
+                    onTap: () {},
+                  ),
+                ),
+              if (secondaryStatus != null) const SizedBox(width: 10),
+              Expanded(
+                child: _HeaderMetricCard(
+                  label: 'Total ${terms.groupLabel}s',
+                  value: '$groupCount',
+                  icon: Icons.collections_bookmark_rounded,
+                  subtitle: 'Unique creators',
+                  onTap: () {},
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // 2. Status Distribution Card
+          CaneleCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${terms.itemLabel} Distribution',
+                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                    Text(
+                      '$totalItems Total',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                        color: AppColors.caramelizedAmber,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (totalItems == 0)
+                  Text(
+                    'No ${terms.itemsLabel.toLowerCase()} in this workspace yet.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
+                    ),
+                  )
+                else ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: SizedBox(
+                      height: 8,
+                      child: Row(
+                        children: availableStatuses.map((st) {
+                          final count = statusMap[st.key]?.length ?? 0;
+                          if (count == 0) return const SizedBox.shrink();
+                          final flex = (count / totalItems * 1000).toInt();
+                          return Flexible(
+                            flex: flex,
+                            child: Container(color: st.color),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 6,
+                    children: availableStatuses.map((st) {
+                      final count = statusMap[st.key]?.length ?? 0;
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: st.color,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${st.label}: $count',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // 3. Spotlight / Recent Section
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Recent ${terms.itemsLabel}',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                ),
+              ),
+              if (allCustom.isNotEmpty)
+                Text(
+                  '${allCustom.length} total',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.caramelizedAmber,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          if (allCustom.isEmpty)
+            CaneleCard(
+              padding: const EdgeInsets.all(20),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.folder_special_outlined,
+                      size: 36,
+                      color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'No ${terms.itemsLabel.toLowerCase()} tracked yet.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: () => showAddCustomItemSheet(context, profile),
+                      icon: const Icon(Icons.add_rounded, size: 16),
+                      label: Text('Add ${terms.itemLabel}'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.caramelizedAmber,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            Column(
+              children: allCustom.take(5).map((item) {
+                final statusMeta = terms.resolveStatus(item.status);
+                return CaneleCard(
+                  key: Key('custom_item_dash_${item.id}'),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  onTap: () => showAddCustomItemSheet(context, profile, existingItem: item),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: statusMeta.color.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(statusMeta.icon, color: statusMeta.color, size: 18),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.title,
+                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (item.groupTitle != null && item.groupTitle!.isNotEmpty)
+                              Text(
+                                item.groupTitle!,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: statusMeta.color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          statusMeta.label,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: statusMeta.color,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -517,6 +828,7 @@ class DashboardScreen extends ConsumerWidget {
 
     final activeProfile = ref.watch(profileNotifierProvider).activeProfile;
     final isGames = activeProfile.type == ProfileType.games;
+    final isCustom = activeProfile.type == ProfileType.custom;
 
     if (isGames) {
       return Scaffold(
@@ -530,6 +842,23 @@ class DashboardScreen extends ConsumerWidget {
           backgroundColor: AppColors.caramelizedAmber,
           foregroundColor: Colors.white,
           tooltip: 'Add Game',
+          child: const Icon(Icons.add_rounded),
+        ),
+      );
+    }
+
+    if (isCustom) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const WorkspaceSwitcherAppBarTitle(fallbackTitle: 'Dashboard'),
+        ),
+        body: _buildCustomDashboard(context, ref, activeProfile, isDark, allSeries),
+        floatingActionButton: FloatingActionButton(
+          key: const Key('dashboard_add_custom_fab'),
+          onPressed: () => showAddCustomItemSheet(context, activeProfile),
+          backgroundColor: AppColors.caramelizedAmber,
+          foregroundColor: Colors.white,
+          tooltip: 'Add ${activeProfile.terms.itemLabel}',
           child: const Icon(Icons.add_rounded),
         ),
       );

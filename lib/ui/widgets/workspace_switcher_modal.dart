@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/profile.dart';
+import 'edit_custom_schema_sheet.dart';
 
 class WorkspaceSwitcherModal extends StatefulWidget {
   final Profile activeProfile;
@@ -283,6 +284,21 @@ class _WorkspaceSwitcherModalState extends State<WorkspaceSwitcherModal> {
                               ],
                             ),
                           ),
+
+                          // Custom Workspace Schema Tune Button
+                          if (profile.type == ProfileType.custom) ...[
+                            IconButton(
+                              key: Key('edit_schema_${profile.id}'),
+                              icon: const Icon(Icons.tune_rounded, size: 20),
+                              tooltip: 'Edit Schema & Terminology',
+                              color: isDark ? AppColors.caramelizedAmberLight : AppColors.caramelizedAmber,
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                                showEditCustomSchemaSheet(context, profile);
+                              },
+                            ),
+                            const SizedBox(width: 4),
+                          ],
 
                           // Active Radio/Checkmark Indicator
                           if (isActive)
