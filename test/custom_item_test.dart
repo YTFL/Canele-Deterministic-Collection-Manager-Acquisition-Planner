@@ -96,9 +96,9 @@ void main() {
         createdAt: DateTime.now(),
       );
 
-      expect(gameProfile.terms.groupLabel, 'Franchise');
+      expect(gameProfile.terms.groupLabel, 'Game Series');
       expect(gameProfile.terms.itemLabel, 'Game');
-      expect(gameProfile.terms.itemsLabel, 'Games');
+      expect(gameProfile.terms.itemsLabel, 'Games & DLCs');
       expect(gameProfile.terms.isFieldEnabled('platform'), isTrue);
     });
 

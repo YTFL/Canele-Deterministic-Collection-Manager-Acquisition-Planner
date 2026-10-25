@@ -5,6 +5,8 @@ import '../../core/constants/app_colors.dart';
 import '../../core/utils/currency_helper.dart';
 import '../../core/utils/date_formatter.dart';
 import '../../core/utils/type_helper.dart';
+import '../../core/utils/workspace_terminology.dart';
+import '../../providers/profile_provider.dart';
 import '../../providers/series_provider.dart';
 import '../../providers/quota_provider.dart';
 import '../widgets/canele_card.dart';
@@ -35,6 +37,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     final allSeries = ref.watch(seriesNotifierProvider);
     final quotaSummary = ref.watch(quotaProvider);
     final config = ref.watch(ruleConfigNotifierProvider);
+    final activeProfile = ref.watch(profileNotifierProvider).activeProfile;
+    final terms = activeProfile.terms;
     ref.watch(exchangeRatesNotifierProvider);
 
     // Volume metrics
@@ -258,7 +262,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                   ),
                   _DetailRow(
                     label: 'Regular Rate',
-                    value: '${config.defaultRegularPerMonth} volume / month',
+                    value: '${config.defaultRegularPerMonth} ${terms.cadenceUnit} / month',
                   ),
                   _DetailRow(
                     label: 'Configured Bonus Months',
@@ -268,7 +272,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                   ),
                   if (config.recurringNoBookMonths.isNotEmpty)
                     _DetailRow(
-                      label: 'Recurring No-Book Months',
+                      label: terms.noPurchaseMonthTitle,
                       value: config.recurringNoBookMonths.map((m) => _monthName(m)).join(', '),
                     ),
                   if (config.customBonusLedger.isNotEmpty)

@@ -4,9 +4,11 @@ import '../../core/constants/app_colors.dart';
 import '../../core/utils/currency_helper.dart';
 import '../../core/utils/date_formatter.dart';
 import '../../core/utils/uuid_generator.dart';
+import '../../core/utils/workspace_terminology.dart';
 import '../../models/series.dart';
 import '../../models/volume.dart';
 import '../../models/purchase_transaction.dart';
+import '../../providers/profile_provider.dart';
 import '../../providers/series_provider.dart';
 import '../../providers/quota_provider.dart';
 import 'canele_dropdown.dart';
@@ -158,6 +160,8 @@ class _LogTransactionSheetState extends ConsumerState<LogTransactionSheet> {
     final allVolumes = ref.watch(volumesNotifierProvider);
     final quota = ref.watch(quotaProvider);
     final config = ref.watch(ruleConfigNotifierProvider);
+    final activeProfile = ref.watch(profileNotifierProvider).activeProfile;
+    final terms = activeProfile.terms;
 
     // Filter available unowned volumes for selected series
     List<Volume> seriesVolumes = [];
@@ -203,7 +207,7 @@ class _LogTransactionSheetState extends ConsumerState<LogTransactionSheet> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Log Book Acquisition',
+                  'Log ${terms.singleItemLabel} Acquisition',
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -218,11 +222,11 @@ class _LogTransactionSheetState extends ConsumerState<LogTransactionSheet> {
 
             // Series Selector (if not pre-selected)
             if (widget.initialSeries == null) ...[
-              Text('Series', style: theme.textTheme.titleMedium),
+              Text(terms.groupLabel, style: theme.textTheme.titleMedium),
               const SizedBox(height: 6),
               CaneleDropdown<Series>(
                 value: _selectedSeries,
-                hint: 'Select a series',
+                hint: 'Select a ${terms.groupLabel.toLowerCase()}',
                 items: allSeries.map((s) {
                   return DropdownMenuItem<Series>(
                     value: s,
@@ -250,23 +254,26 @@ class _LogTransactionSheetState extends ConsumerState<LogTransactionSheet> {
 
             // Volume Selector
             if (widget.initialVolume == null && _selectedSeries != null) ...[
-              Text('Volume', style: theme.textTheme.titleMedium),
+              Text(terms.itemLabel, style: theme.textTheme.titleMedium),
               const SizedBox(height: 6),
               if (seriesVolumes.isEmpty)
                 Text(
-                  'No unowned volumes found for this series.',
+                  'No unowned ${terms.itemsLabel.toLowerCase()} found for this ${terms.groupLabel.toLowerCase()}.',
                   style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.statusWarning),
                 )
               else
               CaneleDropdown<Volume>(
                   value: _selectedVolume,
-                  hint: 'Select volume to acquire',
+                  hint: 'Select ${terms.itemLabel.toLowerCase()} to acquire',
                   items: seriesVolumes.map((v) {
+                    final itemTitle = v.customMetadata['title'] as String?;
+                    final hasTitle = itemTitle != null && itemTitle.trim().isNotEmpty;
+                    final displayLabel = hasTitle
+                        ? '$itemTitle  ·  ${_availabilityLabel(v.availability)}'
+                        : 'Vol. ${DateFormatter.formatVolumeNumber(v.volumeNumber)}  ·  ${_availabilityLabel(v.availability)}';
                     return DropdownMenuItem<Volume>(
                       value: v,
-                      child: Text(
-                        'Vol. ${DateFormatter.formatVolumeNumber(v.volumeNumber)}  ·  ${_availabilityLabel(v.availability)}',
-                      ),
+                      child: Text(displayLabel, overflow: TextOverflow.ellipsis),
                     );
                   }).toList(),
                   onChanged: (v) {

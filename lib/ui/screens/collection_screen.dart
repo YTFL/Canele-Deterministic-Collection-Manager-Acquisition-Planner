@@ -6,23 +6,20 @@ import '../../core/utils/type_helper.dart';
 import '../../core/utils/uuid_generator.dart';
 import '../../models/series.dart';
 import '../../models/volume.dart';
-import '../../models/game_item.dart';
 import '../../models/profile.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/series_provider.dart';
 import '../widgets/canele_card.dart';
 import '../widgets/canele_progress_bar.dart';
 import '../widgets/add_series_sheet.dart';
-import '../widgets/add_game_sheet.dart';
-import '../widgets/game_card.dart';
-import '../widgets/games_grid_view.dart';
+import '../../features/games/ui/views/game_collection_view.dart';
+import '../../features/games/ui/sheets/add_game_sheet.dart';
 import '../widgets/custom_item_card.dart';
 import '../widgets/add_custom_item_sheet.dart';
 import '../../models/custom_item.dart';
 import '../../core/utils/workspace_terminology.dart';
 import '../widgets/workspace_switcher_app_bar_title.dart';
 import 'series_detail_screen.dart';
-import 'game_detail_screen.dart';
 
 enum CollectionSortOption {
   titleAsc('Title (A → Z)', Icons.sort_by_alpha_rounded),
@@ -50,7 +47,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
   final _searchController = TextEditingController();
   String _selectedType = 'all';
   CollectionSortOption _sortOption = CollectionSortOption.titleAsc;
-  GameCardStyle _gameViewStyle = GameCardStyle.grid;
+  CustomCardStyle _customViewStyle = CustomCardStyle.grid;
 
   @override
   void initState() {
@@ -78,71 +75,12 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
   }
 
   void _showAddSeriesDialog(BuildContext context) {
-    showAddSeriesSheet(context);
-  }
-
-  Future<void> _cycleGameStatus(GameItem game) async {
-    final nextStatus = game.backlogStatus.cycleNext();
-    final updated = game.copyWith(backlogStatus: nextStatus);
-    await ref.read(seriesNotifierProvider.notifier).saveSeries(updated.toSeries());
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${game.title} is now ${nextStatus.label}!'),
-          backgroundColor: nextStatus.color,
-          duration: const Duration(seconds: 2),
-        ),
-      );
+    final activeProfile = ref.read(profileNotifierProvider).activeProfile;
+    if (activeProfile.type == ProfileType.games) {
+      AddGameSheet.show(context);
+    } else {
+      showAddSeriesSheet(context);
     }
-  }
-
-  List<GameItem> _filterAndSortGames(List<Series> rawSeries) {
-    final query = _searchController.text.trim().toLowerCase();
-    final allGames = rawSeries.map((s) => GameItem.fromSeries(s)).toList();
-
-    final filtered = allGames.where((g) {
-      final matchesQuery = query.isEmpty ||
-          g.title.toLowerCase().contains(query) ||
-          g.tags.any((t) => t.toLowerCase().contains(query)) ||
-          g.platformInfo.displayName.toLowerCase().contains(query);
-
-      final matchesPlatform = _selectedType == 'all' ||
-          g.platform.toLowerCase() == _selectedType.toLowerCase() ||
-          g.platformInfo.displayName.toLowerCase() == _selectedType.toLowerCase();
-
-      return matchesQuery && matchesPlatform;
-    }).toList();
-
-    filtered.sort((a, b) {
-      switch (_sortOption) {
-        case CollectionSortOption.titleAsc:
-          return a.title.toLowerCase().compareTo(b.title.toLowerCase());
-        case CollectionSortOption.titleDesc:
-          return b.title.toLowerCase().compareTo(a.title.toLowerCase());
-        case CollectionSortOption.progressDesc:
-        case CollectionSortOption.progressAsc:
-          final aRating = a.rating ?? 0.0;
-          final bRating = b.rating ?? 0.0;
-          return _sortOption == CollectionSortOption.progressDesc
-              ? bRating.compareTo(aRating)
-              : aRating.compareTo(bRating);
-        case CollectionSortOption.volumesDesc:
-        case CollectionSortOption.volumesAsc:
-          final aHours = a.playtimeHours ?? 0.0;
-          final bHours = b.playtimeHours ?? 0.0;
-          return _sortOption == CollectionSortOption.volumesDesc
-              ? bHours.compareTo(aHours)
-              : aHours.compareTo(bHours);
-        case CollectionSortOption.typeAsc:
-          final pComp = a.platformInfo.displayName.compareTo(b.platformInfo.displayName);
-          if (pComp != 0) return pComp;
-          return a.title.toLowerCase().compareTo(b.title.toLowerCase());
-      }
-    });
-
-    return filtered;
   }
 
   List<Series> _filterAndSortSeries(List<Series> list, List<Volume> allVolumes) {
@@ -310,7 +248,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
       );
     }
 
-    if (_gameViewStyle == GameCardStyle.list) {
+    if (_customViewStyle == CustomCardStyle.list) {
       return ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         itemCount: items.length,
@@ -363,12 +301,13 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
     final isDark = theme.brightness == Brightness.dark;
 
     final activeProfile = ref.watch(profileNotifierProvider).activeProfile;
+    if (activeProfile.type == ProfileType.games) return const GameCollectionView();
     final isGames = activeProfile.type == ProfileType.games;
     final isCustom = activeProfile.type == ProfileType.custom;
     final terms = activeProfile.terms;
 
     final customStatuses = isCustom ? terms.availableStatuses : <CustomStatusDefinition>[];
-    final tabCount = isGames ? 5 : (isCustom ? 1 + customStatuses.length : 4);
+    final tabCount = isCustom ? 1 + customStatuses.length : 4;
     _ensureTabController(tabCount);
 
     final allSeries = ref.watch(seriesNotifierProvider);
@@ -376,11 +315,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
 
     final List<String> availableTypes;
     if (isGames) {
-      final allGames = allSeries.map((s) => GameItem.fromSeries(s)).toList();
-      final platforms = allGames.map((g) => g.platformInfo.displayName).toSet().toList()..sort();
-      availableTypes = platforms.isEmpty
-          ? GamePlatform.presets.take(4).map((p) => p.displayName).toList()
-          : platforms;
+      availableTypes = const [];
     } else if (isCustom) {
       final allCustom = allSeries.map((s) => CustomItem.fromSeries(s)).toList();
       final categories = allCustom
@@ -415,25 +350,17 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
           unselectedLabelColor: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
           labelStyle: const TextStyle(fontWeight: FontWeight.w700),
           unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
-          tabs: isGames
-              ? const [
-                  Tab(text: 'All Games'),
-                  Tab(text: 'Now Playing'),
-                  Tab(text: 'Backlog'),
-                  Tab(text: 'Beaten / 100%'),
-                  Tab(text: 'Wishlist'),
+          tabs: isCustom
+              ? [
+                  Tab(text: 'All ${terms.itemsLabel}'),
+                  for (final s in customStatuses) Tab(text: s.label),
                 ]
-              : (isCustom
-                  ? [
-                      Tab(text: 'All ${terms.itemsLabel}'),
-                      for (final s in customStatuses) Tab(text: s.label),
-                    ]
-                  : const [
-                      Tab(text: 'All'),
-                      Tab(text: 'Active'),
-                      Tab(text: 'Wishlist'),
-                      Tab(text: 'Completed'),
-                    ]),
+              : const [
+                  Tab(text: 'All'),
+                  Tab(text: 'Active'),
+                  Tab(text: 'Wishlist'),
+                  Tab(text: 'Completed'),
+                ],
         ),
       ),
       body: Column(
@@ -451,7 +378,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
                         onChanged: (_) => setState(() {}),
                         decoration: InputDecoration(
                           hintText: isGames
-                              ? 'Search games, tags, platforms...'
+                              ? 'Search game series...'
                               : (isCustom
                                   ? 'Search ${terms.itemsLabel.toLowerCase()}, tags...'
                                   : 'Search title or tag...'),
@@ -470,14 +397,14 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
                       ),
                     ),
                     const SizedBox(width: 8),
-                    if (isGames || isCustom) ...[
+                    if (isCustom) ...[
                       InkWell(
-                        key: const Key('game_view_style_toggle_button'),
+                        key: const Key('custom_view_style_toggle_button'),
                         onTap: () {
                           setState(() {
-                            _gameViewStyle = _gameViewStyle == GameCardStyle.grid
-                                ? GameCardStyle.list
-                                : GameCardStyle.grid;
+                            _customViewStyle = _customViewStyle == CustomCardStyle.grid
+                                ? CustomCardStyle.list
+                                : CustomCardStyle.grid;
                           });
                         },
                         borderRadius: BorderRadius.circular(12),
@@ -491,7 +418,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
                             ),
                           ),
                           child: Icon(
-                            _gameViewStyle == GameCardStyle.grid
+                            _customViewStyle == CustomCardStyle.grid
                                 ? Icons.view_list_rounded
                                 : Icons.grid_view_rounded,
                             size: 20,
@@ -546,160 +473,92 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _FilterChip(
-                        label: 'All',
-                        isSelected: _selectedType == 'all',
-                        onSelected: () => setState(() => _selectedType = 'all'),
-                      ),
-                      for (final t in availableTypes) ...[
-                        const SizedBox(width: 8),
+                if (availableTypes.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
                         _FilterChip(
-                          label: t,
-                          isSelected: _selectedType.toLowerCase() == t.toLowerCase(),
-                          onSelected: () => setState(() => _selectedType = t),
+                          label: 'All',
+                          isSelected: _selectedType == 'all',
+                          onSelected: () => setState(() => _selectedType = 'all'),
                         ),
+                        for (final t in availableTypes) ...[
+                          const SizedBox(width: 8),
+                          _FilterChip(
+                            label: t,
+                            isSelected: _selectedType.toLowerCase() == t.toLowerCase(),
+                            onSelected: () => setState(() => _selectedType = t),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
 
           // Tab Views
           Expanded(
-            child: isGames
+            child: isCustom
                 ? TabBarView(
                     controller: _tabController,
                     children: [
-                      GamesCollectionView(
-                        games: _filterAndSortGames(allSeries),
-                        viewStyle: _gameViewStyle,
-                        emptyMessage: 'No games found in collection.',
-                        onAddGame: () => showAddGameSheet(context),
-                        onGameTap: (game) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => GameDetailScreen(gameId: game.id)),
-                          );
-                        },
-                        onStatusCycle: (game) => _cycleGameStatus(game),
+                      _buildCustomItemsView(
+                        context,
+                        activeProfile,
+                        _filterAndSortCustomItems(allSeries),
+                        emptyMessage: 'No ${terms.itemsLabel.toLowerCase()} found in collection.',
                       ),
-                      GamesCollectionView(
-                        games: _filterAndSortGames(allSeries)
-                            .where((g) => g.backlogStatus == GameBacklogStatus.playing)
-                            .toList(),
-                        viewStyle: _gameViewStyle,
-                        emptyMessage: 'No games currently in playthrough.',
-                        onAddGame: () => showAddGameSheet(context),
-                        onGameTap: (game) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => GameDetailScreen(gameId: game.id)),
-                          );
-                        },
-                        onStatusCycle: (game) => _cycleGameStatus(game),
-                      ),
-                      GamesCollectionView(
-                        games: _filterAndSortGames(allSeries)
-                            .where((g) => g.backlogStatus == GameBacklogStatus.backlog)
-                            .toList(),
-                        viewStyle: _gameViewStyle,
-                        emptyMessage: 'No games in your backlog queue.',
-                        onAddGame: () => showAddGameSheet(context),
-                        onGameTap: (game) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => GameDetailScreen(gameId: game.id)),
-                          );
-                        },
-                        onStatusCycle: (game) => _cycleGameStatus(game),
-                      ),
-                      GamesCollectionView(
-                        games: _filterAndSortGames(allSeries)
-                            .where((g) =>
-                                g.backlogStatus == GameBacklogStatus.beaten ||
-                                g.backlogStatus == GameBacklogStatus.completed)
-                            .toList(),
-                        viewStyle: _gameViewStyle,
-                        emptyMessage: 'No beaten or completed games yet.',
-                        onAddGame: () => showAddGameSheet(context),
-                        onGameTap: (game) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => GameDetailScreen(gameId: game.id)),
-                          );
-                        },
-                        onStatusCycle: (game) => _cycleGameStatus(game),
-                      ),
-                      GamesCollectionView(
-                        games: _filterAndSortGames(allSeries)
-                            .where((g) => g.backlogStatus == GameBacklogStatus.wishlist)
-                            .toList(),
-                        viewStyle: _gameViewStyle,
-                        emptyMessage: 'No wishlist games found.',
-                        onAddGame: () => showAddGameSheet(context),
-                        onGameTap: (game) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => GameDetailScreen(gameId: game.id)),
-                          );
-                        },
-                        onStatusCycle: (game) => _cycleGameStatus(game),
-                      ),
+                      for (final s in customStatuses)
+                        _buildCustomItemsView(
+                          context,
+                          activeProfile,
+                          _filterAndSortCustomItems(allSeries)
+                              .where((item) => item.status.toLowerCase() == s.key.toLowerCase())
+                              .toList(),
+                          emptyMessage: 'No ${terms.itemsLabel.toLowerCase()} in ${s.label}.',
+                        ),
                     ],
                   )
-                : (isCustom
-                    ? TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _buildCustomItemsView(
-                            context,
-                            activeProfile,
-                            _filterAndSortCustomItems(allSeries),
-                            emptyMessage: 'No ${terms.itemsLabel.toLowerCase()} found in collection.',
-                          ),
-                          for (final s in customStatuses)
-                            _buildCustomItemsView(
-                              context,
-                              activeProfile,
-                              _filterAndSortCustomItems(allSeries)
-                                  .where((item) => item.status.toLowerCase() == s.key.toLowerCase())
-                                  .toList(),
-                              emptyMessage: 'No ${terms.itemsLabel.toLowerCase()} in ${s.label}.',
-                            ),
-                        ],
-                      )
-                    : TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _SeriesListView(
-                            seriesList: _filterAndSortSeries(allSeries, allVolumes),
-                            emptyMessage: 'No books found in collection.',
-                          ),
-                          _SeriesListView(
-                            seriesList: _filterAndSortSeries(activeSeries, allVolumes),
-                            emptyMessage: 'No active series found.',
-                          ),
-                          _SeriesListView(
-                            seriesList: _filterAndSortSeries(wishlistSeries, allVolumes),
-                            emptyMessage: 'No wishlist series found.',
-                          ),
-                          _SeriesListView(
-                            seriesList: _filterAndSortSeries(completedSeries, allVolumes),
-                            emptyMessage: 'No completed series found.',
-                          ),
-                        ],
-                      )),
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _SeriesListView(
+                        seriesList: _filterAndSortSeries(allSeries, allVolumes),
+                        emptyMessage: isGames
+                            ? 'No games or game series found in collection.'
+                            : 'No books found in collection.',
+                      ),
+                      _SeriesListView(
+                        seriesList: _filterAndSortSeries(activeSeries, allVolumes),
+                        emptyMessage: isGames
+                            ? 'No active game series found.'
+                            : 'No active series found.',
+                      ),
+                      _SeriesListView(
+                        seriesList: _filterAndSortSeries(wishlistSeries, allVolumes),
+                        emptyMessage: isGames
+                            ? 'No wishlist game series found.'
+                            : 'No wishlist series found.',
+                      ),
+                      _SeriesListView(
+                        seriesList: _filterAndSortSeries(completedSeries, allVolumes),
+                        emptyMessage: isGames
+                            ? 'No completed game series found.'
+                            : 'No completed series found.',
+                      ),
+                    ],
+                  ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
         key: const Key('add_collection_item_fab'),
         onPressed: () {
-          if (isGames) {
-            showAddGameSheet(context);
-          } else if (isCustom) {
+          if (isCustom) {
             showAddCustomItemSheet(context, activeProfile);
           } else {
             _showAddSeriesDialog(context);
@@ -707,9 +566,9 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> with Single
         },
         backgroundColor: AppColors.caramelizedAmber,
         foregroundColor: Colors.white,
-        tooltip: isGames
-            ? 'Add Game'
-            : (isCustom ? 'Add ${terms.itemLabel}' : 'Add Series'),
+        tooltip: isCustom
+            ? 'Add ${terms.itemLabel}'
+            : 'Add ${terms.groupLabel}',
         child: const Icon(Icons.add_rounded),
       ),
     );
@@ -778,6 +637,10 @@ class _SeriesListView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final activeProfile = ref.watch(profileNotifierProvider).activeProfile;
+    if (activeProfile.type == ProfileType.games) return const GameCollectionView();
+    final isGames = activeProfile.type == ProfileType.games;
+    final terms = activeProfile.terms;
 
     if (seriesList.isEmpty) {
       return Center(
@@ -827,7 +690,9 @@ class _SeriesListView extends ConsumerWidget {
                       border: Border.all(color: AppColors.pastryCrustBorder, width: 0.8),
                     ),
                     child: Text(
-                      series.type.toUpperCase(),
+                      isGames
+                          ? ((series.customMetadata['isStandalone'] == true) ? 'GAME' : 'GAME SERIES')
+                          : series.type.toUpperCase(),
                       style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
                     ),
                   ),
@@ -848,6 +713,9 @@ class _SeriesListView extends ConsumerWidget {
                         releaseDate: null,
                         isOwned: false,
                         availability: 'available',
+                        customMetadata: isGames
+                            ? {'itemType': 'game', 'title': 'Game #${DateFormatter.formatVolumeNumber(nextVolNum)}'}
+                            : const {},
                       );
                       await ref.read(volumesNotifierProvider.notifier).saveVolume(newVol);
                       if (context.mounted) {
@@ -855,7 +723,9 @@ class _SeriesListView extends ConsumerWidget {
                           ..clearSnackBars()
                           ..showSnackBar(
                           SnackBar(
-                            content: Text('Added Vol. ${DateFormatter.formatVolumeNumber(nextVolNum)} to ${series.title}'),
+                            content: Text(isGames
+                                ? 'Added Game #${DateFormatter.formatVolumeNumber(nextVolNum)} to ${series.title}'
+                                : 'Added Vol. ${DateFormatter.formatVolumeNumber(nextVolNum)} to ${series.title}'),
                             backgroundColor: AppColors.caramelizedAmber,
                             duration: const Duration(seconds: 2),
                           ),
@@ -881,10 +751,10 @@ class _SeriesListView extends ConsumerWidget {
                           final confirm = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
-                              title: const Text('Mark Series as Completed?'),
+                              title: Text('Mark ${terms.groupLabel} as Completed?'),
                               content: Text(
                                 'Are you sure you want to mark "${series.title}" as completed?\n\n'
-                                'This will mark all ${volumes.length} volume(s) as purchased and move the series to Completed collection.',
+                                'This will mark all ${volumes.length} ${terms.itemsLabel.toLowerCase()} as purchased and move the ${terms.groupLabel.toLowerCase()} to Completed collection.',
                               ),
                               actions: [
                                 TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
@@ -903,7 +773,7 @@ class _SeriesListView extends ConsumerWidget {
                                 ..clearSnackBars()
                                 ..showSnackBar(
                                   SnackBar(
-                                    content: Text('Marked "${series.title}" as Completed and all volumes as purchased!'),
+                                    content: Text('Marked "${series.title}" as Completed and all ${terms.itemsLabel.toLowerCase()} as purchased!'),
                                     backgroundColor: AppColors.statusSuccess,
                                   ),
                                 );
@@ -944,7 +814,9 @@ class _SeriesListView extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        'Next: Vol. ${DateFormatter.formatVolumeNumber(stats.nextMissingVolume!.volumeNumber)}',
+                        isGames
+                            ? 'Next: ${(stats.nextMissingVolume!.customMetadata['title'] as String?)?.isNotEmpty == true ? stats.nextMissingVolume!.customMetadata['title'] : 'Game #${DateFormatter.formatVolumeNumber(stats.nextMissingVolume!.volumeNumber)}'}'
+                            : 'Next: Vol. ${DateFormatter.formatVolumeNumber(stats.nextMissingVolume!.volumeNumber)}',
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,

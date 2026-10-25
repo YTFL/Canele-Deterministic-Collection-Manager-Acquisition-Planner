@@ -60,8 +60,18 @@ class SeriesService {
     final effectiveIsGift = isCompletedStatus && !isGift ? false : isGift;
     final volumes = <Volume>[];
 
+    final isGame = type == 'game' || customMetadata['isGame'] == true;
     for (int i = 1; i <= count; i++) {
       final isThisOwned = effectiveMarkOwned && (i <= effectiveOwnedCount);
+      final volMetadata = <String, dynamic>{};
+      if (isGame) {
+        volMetadata['isGame'] = true;
+        volMetadata['itemType'] = 'game';
+        volMetadata['title'] = count == 1 ? title.trim() : '${title.trim()} $i';
+        if (customMetadata.containsKey('platform')) {
+          volMetadata['platform'] = customMetadata['platform'];
+        }
+      }
       volumes.add(
         Volume(
           id: UuidGenerator.generate(),
@@ -71,6 +81,9 @@ class SeriesService {
           availability: 'available',
           isRestockedWatchlist: false,
           isGift: isThisOwned && effectiveIsGift,
+          price: defaultVolumePrice,
+          currency: defaultVolumeCurrency,
+          customMetadata: volMetadata,
         ),
       );
     }
@@ -90,8 +103,9 @@ class SeriesService {
           volumeId: v.id,
           purchaseDate: now,
           quotaBucket: effectiveIsGift ? 'gift' : 'regular',
-          price: 0.0,
-          notes: effectiveIsGift ? 'Received as gift' : 'Added during series creation',
+          price: v.price ?? 0.0,
+          currency: v.currency,
+          notes: effectiveIsGift ? 'Received as gift' : 'Added during creation',
         ),
       );
     }

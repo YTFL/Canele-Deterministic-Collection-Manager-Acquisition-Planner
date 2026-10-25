@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/workspace_terminology.dart';
 import '../../models/rule_model.dart';
 import 'canele_card.dart';
 
 class RuleCard extends StatelessWidget {
   final RuleModel rule;
   final int displayIndex;
+  final WorkspaceTerminology? terms;
   final VoidCallback onTap;
   final ValueChanged<bool> onToggleEnabled;
 
@@ -13,6 +15,7 @@ class RuleCard extends StatelessWidget {
     super.key,
     required this.rule,
     required this.displayIndex,
+    this.terms,
     required this.onTap,
     required this.onToggleEnabled,
   });
@@ -100,10 +103,10 @@ class RuleCard extends StatelessWidget {
     final chips = <Widget>[];
 
     // 1. Scope Chip
-    String scopeLabel = 'All Series';
+    String scopeLabel = 'All ${terms?.groupLabel ?? 'Series'}';
     switch (rule.scopeType) {
       case RuleScopeType.allSeries:
-        scopeLabel = 'All Series';
+        scopeLabel = 'All ${terms?.groupLabel ?? 'Series'}';
         break;
       case RuleScopeType.specificSeries:
         scopeLabel = 'Specific (${rule.targetSeriesIds.length})';
@@ -127,10 +130,10 @@ class RuleCard extends StatelessWidget {
       String triggerLabel = '';
       switch (rule.progressTrigger) {
         case ProgressTriggerType.exactVolumesLeft:
-          triggerLabel = '${rule.volumeThresholdValue ?? 1} Vol Left';
+          triggerLabel = '${rule.volumeThresholdValue ?? 1} ${terms?.itemLabel ?? 'Vol'} Left';
           break;
         case ProgressTriggerType.leastRemainingVolumes:
-          triggerLabel = '<= ${rule.volumeThresholdValue ?? 3} Vols Left';
+          triggerLabel = '<= ${rule.volumeThresholdValue ?? 3} ${terms?.itemsLabel ?? 'Vols'} Left';
           break;
         case ProgressTriggerType.completionPercentage:
           triggerLabel = '>= ${rule.percentageThreshold?.toStringAsFixed(0) ?? 80}% Complete';
@@ -153,7 +156,7 @@ class RuleCard extends StatelessWidget {
         sortLabel = 'Earliest Release';
         break;
       case SortCriteria.lowestVolumeNumber:
-        sortLabel = 'Lowest Vol #';
+        sortLabel = 'Lowest ${terms?.itemLabel ?? 'Vol'} #';
         break;
       case SortCriteria.closestToCompletion:
         sortLabel = 'Closest to Complete';

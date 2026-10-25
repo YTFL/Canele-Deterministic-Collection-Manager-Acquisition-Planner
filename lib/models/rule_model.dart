@@ -1,4 +1,6 @@
 import 'package:hive/hive.dart';
+import '../core/utils/uuid_generator.dart';
+import 'profile.dart';
 
 part 'rule_model.g.dart';
 
@@ -205,4 +207,68 @@ class RuleModel extends HiveObject {
       orElse: () => SortCriteria.earliestReleaseDate,
     );
   }
+
+  static List<RuleModel> defaultRulesForProfile(ProfileType type) {
+    if (type == ProfileType.games) {
+      return [
+        RuleModel(
+          id: UuidGenerator.generate(),
+          name: 'Prioritize Watchlist Games & DLCs',
+          priorityOrder: 0,
+          scopeType: RuleScopeType.allSeries,
+          restockPriorityEnabled: true,
+          progressTrigger: ProgressTriggerType.none,
+          sortBy: SortCriteria.earliestReleaseDate,
+        ),
+        RuleModel(
+          id: UuidGenerator.generate(),
+          name: 'Finish Near-Complete Game Series',
+          priorityOrder: 1,
+          scopeType: RuleScopeType.allSeries,
+          progressTrigger: ProgressTriggerType.leastRemainingVolumes,
+          volumeThresholdValue: 2,
+          sortBy: SortCriteria.closestToCompletion,
+        ),
+        RuleModel(
+          id: UuidGenerator.generate(),
+          name: 'Next Sequential Game or DLC',
+          priorityOrder: 2,
+          scopeType: RuleScopeType.allSeries,
+          progressTrigger: ProgressTriggerType.none,
+          sortBy: SortCriteria.lowestVolumeNumber,
+        ),
+      ];
+    } else {
+      return [
+        RuleModel(
+          id: UuidGenerator.generate(),
+          name: 'Prioritize In-Stock & Restocked',
+          priorityOrder: 0,
+          scopeType: RuleScopeType.allSeries,
+          restockPriorityEnabled: true,
+          progressTrigger: ProgressTriggerType.none,
+          sortBy: SortCriteria.earliestReleaseDate,
+        ),
+        RuleModel(
+          id: UuidGenerator.generate(),
+          name: 'Complete Nearly-Finished Series',
+          priorityOrder: 1,
+          scopeType: RuleScopeType.allSeries,
+          progressTrigger: ProgressTriggerType.leastRemainingVolumes,
+          volumeThresholdValue: 2,
+          sortBy: SortCriteria.closestToCompletion,
+        ),
+        RuleModel(
+          id: UuidGenerator.generate(),
+          name: 'Fill Gaps & Next Volume',
+          priorityOrder: 2,
+          scopeType: RuleScopeType.allSeries,
+          progressTrigger: ProgressTriggerType.none,
+          sortBy: SortCriteria.lowestVolumeNumber,
+        ),
+      ];
+    }
+  }
+
+  static List<RuleModel> get defaultRules => defaultRulesForProfile(ProfileType.books);
 }

@@ -71,7 +71,7 @@ class _AddWorkspaceDialogState extends State<AddWorkspaceDialog> {
           _selectedIcon = 'book';
           break;
         case ProfileType.games:
-          _nameController.text = 'Game Backlog';
+          _nameController.text = 'Games';
           _selectedIcon = 'gamepad';
           break;
         case ProfileType.custom:
@@ -87,7 +87,7 @@ class _AddWorkspaceDialogState extends State<AddWorkspaceDialog> {
     final name = _nameController.text.trim().isEmpty
         ? (_selectedType == ProfileType.books
             ? 'Books & Manga'
-            : (_selectedType == ProfileType.games ? 'Game Backlog' : 'My Collection'))
+            : (_selectedType == ProfileType.games ? 'Games' : 'My Collection'))
         : _nameController.text.trim();
 
     setState(() => _isCreating = true);
@@ -187,8 +187,8 @@ class _AddWorkspaceDialogState extends State<AddWorkspaceDialog> {
                 const SizedBox(height: 10),
                 _buildPresetCard(
                   type: ProfileType.games,
-                  title: 'Video Games',
-                  description: 'Game backlog, cover art grid view, platforms, and completion states.',
+                  title: 'Games',
+                  description: 'Track game series, individual titles, DLCs, and deterministic monthly acquisitions.',
                   icon: Icons.sports_esports_rounded,
                   isDark: isDark,
                 ),

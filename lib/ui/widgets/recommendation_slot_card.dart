@@ -75,20 +75,36 @@ class RecommendationSlotCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 4),
-                // Volume number chip
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.caramelizedAmber.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    'Vol. ${DateFormatter.formatVolumeNumber(slot.volume.volumeNumber)}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.caramelizedAmber,
-                    ),
-                  ),
+                // Volume / Game item label chip
+                Builder(
+                  builder: (context) {
+                    final customTitle = slot.volume.customMetadata['title'] as String?;
+                    final itemType = slot.volume.customMetadata['itemType'] as String?;
+                    final isDlc = itemType == 'dlc';
+                    final isGame = slot.series.customMetadata['isGame'] == true || slot.volume.customMetadata['isGame'] == true;
+                    final itemLabel = (customTitle != null && customTitle.isNotEmpty)
+                        ? (isDlc ? '[DLC] $customTitle' : customTitle)
+                        : (isGame
+                            ? 'Game #${DateFormatter.formatVolumeNumber(slot.volume.volumeNumber)}'
+                            : 'Vol. ${DateFormatter.formatVolumeNumber(slot.volume.volumeNumber)}');
+
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isDlc
+                            ? AppColors.caramelizedAmber.withValues(alpha: 0.22)
+                            : AppColors.caramelizedAmber.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        itemLabel,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.caramelizedAmber,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),

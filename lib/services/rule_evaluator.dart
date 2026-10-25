@@ -111,6 +111,11 @@ class RuleEvaluator {
     final activeRules = rules.where((r) => r.isEnabled).toList()
       ..sort((a, b) => a.priorityOrder.compareTo(b.priorityOrder));
 
+    // If there are no active/enabled rules configured, do not recommend any books
+    if (activeRules.isEmpty) {
+      return [];
+    }
+
     // 3. Execute Rules Sequentially
     for (final rule in activeRules) {
       if (slots.length >= maxSlots) break;
@@ -282,17 +287,25 @@ class RuleEvaluator {
   }
 
   static String _buildReason(RuleModel rule, CandidateItem item) {
+    final isGame = item.series.type.toLowerCase() == 'game' || (item.series.customMetadata['isGame'] == true);
+    final isDlc = item.volume.customMetadata['itemType'] == 'dlc';
     if (rule.restockPriorityEnabled && item.volume.isRestockedWatchlist) {
+      if (isGame) {
+        return isDlc ? 'Available Watchlist DLC' : 'Available Watchlist Game';
+      }
       return 'Restocked / Available Watchlist Volume';
     }
-    if (rule.progressTrigger == ProgressTriggerType.exactVolumesLeft) {
-      return '${item.context.missingCount} volume(s) left to complete series';
+    if (rule.progressTrigger == ProgressTriggerType.exactVolumesLeft ||
+        rule.progressTrigger == ProgressTriggerType.leastRemainingVolumes) {
+      return isGame
+          ? '${item.context.missingCount} game(s) or DLC(s) left to complete series'
+          : '${item.context.missingCount} volume(s) left to complete series';
     }
     if (rule.progressTrigger == ProgressTriggerType.completionPercentage) {
       return '${item.context.completionPercentage.toStringAsFixed(0)}% series completed';
     }
     if (rule.progressTrigger == ProgressTriggerType.gapFilling) {
-      return 'Fills chronological collection gap';
+      return isGame ? 'Fills chronological franchise gap' : 'Fills chronological collection gap';
     }
     return 'Matched rule "${rule.name}"';
   }

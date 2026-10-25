@@ -313,5 +313,30 @@ void main() {
       expect(slots.first.series.id, 's_act');
       expect(slots.first.volume.id, 'va1');
     });
+
+    test('Returns empty slots when no rules are configured or all rules are disabled', () {
+      final sActive = Series(id: 's_act', title: 'Active Series', type: 'Manga', collectionStatus: 'active');
+      final vAct = Volume(id: 'va1', seriesId: 's_act', volumeNumber: 1.0, isOwned: false, availability: 'available');
+
+      // 1. Empty rules list
+      final slotsEmpty = RuleEvaluator.evaluate(
+        rules: [],
+        seriesList: [sActive],
+        volumesList: [vAct],
+        asOfDate: now,
+      );
+      expect(slotsEmpty, isEmpty);
+
+      // 2. All rules disabled
+      final slotsDisabled = RuleEvaluator.evaluate(
+        rules: [
+          RuleModel(id: 'r_disabled', name: 'Disabled Rule', isEnabled: false, priorityOrder: 0),
+        ],
+        seriesList: [sActive],
+        volumesList: [vAct],
+        asOfDate: now,
+      );
+      expect(slotsDisabled, isEmpty);
+    });
   });
 }

@@ -4,22 +4,21 @@ import '../../core/constants/app_colors.dart';
 import '../../core/utils/date_formatter.dart';
 import '../../models/series.dart';
 import '../../models/volume.dart';
-import '../../models/game_item.dart';
 import '../../models/profile.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/series_provider.dart';
 import '../../providers/quota_provider.dart';
 import '../../providers/recommendation_provider.dart';
+import '../../providers/rule_provider.dart';
 import '../widgets/canele_card.dart';
 import '../widgets/quota_status_card.dart';
 import '../widgets/recommendation_slot_card.dart';
 import '../widgets/log_transaction_sheet.dart';
-import '../widgets/add_game_sheet.dart';
 import '../widgets/add_custom_item_sheet.dart';
 import '../../models/custom_item.dart';
+import '../../features/games/ui/views/game_dashboard_view.dart';
 import '../../core/utils/workspace_terminology.dart';
 import 'series_detail_screen.dart';
-import 'game_detail_screen.dart';
 import 'stats_screen.dart';
 import '../widgets/workspace_switcher_app_bar_title.dart';
 
@@ -27,6 +26,18 @@ class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
   void _showUpdateStatusSheet(BuildContext context, WidgetRef ref, Volume volume, Series series) {
+    final activeProfile = ref.read(profileNotifierProvider).activeProfile;
+    final isGames = activeProfile.type == ProfileType.games;
+    final terms = activeProfile.terms;
+
+    final customTitle = volume.customMetadata['title'] as String?;
+    final itemType = volume.customMetadata['itemType'] as String?;
+    final itemLabel = isGames
+        ? ((customTitle != null && customTitle.isNotEmpty)
+            ? '${itemType == 'dlc' ? '[DLC] ' : ''}$customTitle'
+            : 'Game #${DateFormatter.formatVolumeNumber(volume.volumeNumber)}')
+        : 'Vol. ${DateFormatter.formatVolumeNumber(volume.volumeNumber)}';
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Theme.of(context).cardColor,
@@ -46,7 +57,7 @@ class DashboardScreen extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        'Update Status · ${series.title} Vol. ${DateFormatter.formatVolumeNumber(volume.volumeNumber)}',
+                        'Update Status · ${series.title} $itemLabel',
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                       ),
                     ),
@@ -60,7 +71,7 @@ class DashboardScreen extends ConsumerWidget {
                 ListTile(
                   leading: const Icon(Icons.check_circle_outline_rounded, color: AppColors.statusSuccess),
                   title: const Text('Mark In Stock / Available'),
-                  subtitle: const Text('Volume is available for purchase'),
+                  subtitle: Text('${terms.itemLabel} is available for purchase'),
                   onTap: () async {
                     final updated = volume.copyWith(
                       availability: 'available',
@@ -73,7 +84,7 @@ class DashboardScreen extends ConsumerWidget {
                         ..clearSnackBars()
                         ..showSnackBar(
                         SnackBar(
-                          content: Text('${series.title} Vol. ${DateFormatter.formatVolumeNumber(volume.volumeNumber)} marked as Available!'),
+                          content: Text('${series.title} $itemLabel marked as Available!'),
                           backgroundColor: AppColors.caramelizedAmber,
                         ),
                       );
@@ -125,334 +136,6 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildGamesDashboard(BuildContext context, WidgetRef ref, bool isDark, List<Series> allSeries) {
-    final theme = Theme.of(context);
-    final allGames = allSeries.map((s) => GameItem.fromSeries(s)).toList();
-
-    final nowPlaying = allGames.where((g) => g.backlogStatus == GameBacklogStatus.playing).toList();
-    final backlog = allGames.where((g) => g.backlogStatus == GameBacklogStatus.backlog).toList();
-    final finished = allGames.where((g) => g.backlogStatus == GameBacklogStatus.beaten || g.backlogStatus == GameBacklogStatus.completed).toList();
-
-    final totalValue = allGames.fold<double>(0.0, (sum, g) => sum + (g.price ?? 0.0));
-    final totalHours = allGames.fold<double>(0.0, (sum, g) => sum + (g.playtimeHours ?? 0.0));
-    final clearanceRatio = allGames.isEmpty ? 0.0 : finished.length / allGames.length;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 1. Metric Header Row 1: Total Games & Now Playing
-          Row(
-            children: [
-              Expanded(
-                child: _HeaderMetricCard(
-                  label: 'Total Games',
-                  value: '${allGames.length}',
-                  icon: Icons.sports_esports_rounded,
-                  subtitle: totalValue > 0 ? '\$${totalValue.toStringAsFixed(0)} value' : 'In library',
-                  onTap: () {},
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _HeaderMetricCard(
-                  label: 'Now Playing',
-                  value: '${nowPlaying.length}',
-                  icon: Icons.play_circle_fill_rounded,
-                  subtitle: '${totalHours.toStringAsFixed(0)} hrs logged',
-                  onTap: () {},
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          // Metric Header Row 2: In Backlog & Finished
-          Row(
-            children: [
-              Expanded(
-                child: _HeaderMetricCard(
-                  label: 'In Backlog',
-                  value: '${backlog.length}',
-                  icon: Icons.inventory_2_outlined,
-                  subtitle: 'Ready to play',
-                  onTap: () {},
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _HeaderMetricCard(
-                  label: 'Beaten & 100%',
-                  value: '${finished.length}',
-                  icon: Icons.workspace_premium_rounded,
-                  subtitle: '${(clearanceRatio * 100).toStringAsFixed(0)}% cleared',
-                  onTap: () {},
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // 2. Backlog Clearance Progress Card
-          CaneleCard(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Backlog Clearance Rate',
-                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                    Text(
-                      '${(clearanceRatio * 100).toStringAsFixed(0)}%',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 16,
-                        color: AppColors.caramelizedAmber,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: clearanceRatio,
-                    minHeight: 6,
-                    backgroundColor: isDark ? AppColors.darkPastryBorder : AppColors.pastryCrustBorder,
-                    valueColor: const AlwaysStoppedAnimation(AppColors.caramelizedAmber),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '${finished.length} finished · ${backlog.length} pending · ${nowPlaying.length} active',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // 3. Currently Playing Spotlight Section
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Currently Playing',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                ),
-              ),
-              if (nowPlaying.isNotEmpty)
-                Text(
-                  '${nowPlaying.length} active',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.caramelizedAmber,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          if (nowPlaying.isEmpty)
-            CaneleCard(
-              padding: const EdgeInsets.all(20),
-              child: Center(
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.sports_esports_outlined,
-                      size: 32,
-                      color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'No games currently in active playthrough.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ElevatedButton.icon(
-                      onPressed: () => showAddGameSheet(context),
-                      icon: const Icon(Icons.add_rounded, size: 16),
-                      label: const Text('Add Game to Play'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.caramelizedAmber,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else
-            Column(
-              children: nowPlaying.map((game) {
-                final platform = game.platformInfo;
-                return CaneleCard(
-                  key: Key('now_playing_${game.id}'),
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(12),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => GameDetailScreen(gameId: game.id)),
-                    );
-                  },
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          width: 44,
-                          height: 58,
-                          color: platform.badgeColor.withValues(alpha: 0.18),
-                          child: Icon(platform.icon, color: platform.badgeColor, size: 24),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              game.title,
-                              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              '${platform.displayName} · ${game.playtimeHours?.toStringAsFixed(1) ?? '0.0'} hrs',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      OutlinedButton(
-                        onPressed: () async {
-                          final updated = game.copyWith(backlogStatus: GameBacklogStatus.beaten);
-                          await ref.read(seriesNotifierProvider.notifier).saveSeries(updated.toSeries());
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('🎉 Beat "${game.title}"! Moved to Finished.'),
-                                backgroundColor: GameBacklogStatus.beaten.color,
-                              ),
-                            );
-                          }
-                        },
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: GameBacklogStatus.beaten.color,
-                          side: BorderSide(color: GameBacklogStatus.beaten.color),
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          visualDensity: VisualDensity.compact,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        child: const Text('Mark Beaten', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-
-          const SizedBox(height: 20),
-
-          // 4. Backlog Queue Header & Items
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Next Up in Backlog',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                ),
-              ),
-              if (backlog.isNotEmpty)
-                Text(
-                  '${backlog.length} queued',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          if (backlog.isEmpty)
-            CaneleCard(
-              padding: const EdgeInsets.all(16),
-              child: Center(
-                child: Text(
-                  'Backlog is empty! Add new games to track.',
-                  style: TextStyle(color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted),
-                ),
-              ),
-            )
-          else
-            Column(
-              children: backlog.take(4).map((game) {
-                final platform = game.platformInfo;
-                return CaneleCard(
-                  key: Key('backlog_queue_${game.id}'),
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => GameDetailScreen(gameId: game.id)),
-                    );
-                  },
-                  child: Row(
-                    children: [
-                      Icon(platform.icon, size: 18, color: platform.badgeColor),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          game.title,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () async {
-                          final updated = game.copyWith(backlogStatus: GameBacklogStatus.playing);
-                          await ref.read(seriesNotifierProvider.notifier).saveSeries(updated.toSeries());
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.caramelizedAmber,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        child: const Text('Start Playing', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildCustomDashboard(BuildContext context, WidgetRef ref, Profile profile, bool isDark, List<Series> allSeries) {
     final theme = Theme.of(context);
@@ -771,6 +454,8 @@ class DashboardScreen extends ConsumerWidget {
     final recommendationSlots = ref.watch(recommendationSlotsProvider);
     final allVolumes = ref.watch(volumesNotifierProvider);
     final allSeries = ref.watch(seriesNotifierProvider);
+    final rules = ref.watch(rulesNotifierProvider);
+    final hasActiveRules = rules.any((r) => r.isEnabled);
 
     final now = DateTime.now();
     final nextMonthLimit = DateTime(now.year, now.month + 2, 1);
@@ -831,20 +516,7 @@ class DashboardScreen extends ConsumerWidget {
     final isCustom = activeProfile.type == ProfileType.custom;
 
     if (isGames) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const WorkspaceSwitcherAppBarTitle(fallbackTitle: 'Dashboard'),
-        ),
-        body: _buildGamesDashboard(context, ref, isDark, allSeries),
-        floatingActionButton: FloatingActionButton(
-          key: const Key('dashboard_add_game_fab'),
-          onPressed: () => showAddGameSheet(context),
-          backgroundColor: AppColors.caramelizedAmber,
-          foregroundColor: Colors.white,
-          tooltip: 'Add Game',
-          child: const Icon(Icons.add_rounded),
-        ),
-      );
+      return const GameDashboardView();
     }
 
     if (isCustom) {
@@ -880,8 +552,8 @@ class DashboardScreen extends ConsumerWidget {
                     child: _HeaderMetricCard(
                       label: 'Total Owned',
                       value: '${metrics.totalOwned}',
-                      icon: Icons.auto_stories_rounded,
-                      subtitle: 'Physical volumes',
+                      icon: isGames ? Icons.sports_esports_rounded : Icons.auto_stories_rounded,
+                      subtitle: isGames ? 'Games & DLCs' : 'Physical volumes',
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -894,10 +566,10 @@ class DashboardScreen extends ConsumerWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: _HeaderMetricCard(
-                      label: 'Active Series',
+                      label: isGames ? 'Game Series' : 'Active Series',
                       value: '${metrics.activeSeriesCount}',
-                      icon: Icons.collections_bookmark_rounded,
-                      subtitle: 'In collection',
+                      icon: isGames ? Icons.category_rounded : Icons.collections_bookmark_rounded,
+                      subtitle: isGames ? 'In library' : 'In collection',
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -974,20 +646,28 @@ class DashboardScreen extends ConsumerWidget {
                     child: Column(
                       children: [
                         Icon(
-                          Icons.check_circle_outline_rounded,
+                          !hasActiveRules
+                              ? Icons.tune_rounded
+                              : Icons.check_circle_outline_rounded,
                           size: 40,
                           color: isDark ? AppColors.caramelizedAmberLight : AppColors.caramelizedAmber,
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'All Caught Up!',
+                          !hasActiveRules
+                              ? 'No Active Rules Configured'
+                              : 'All Caught Up!',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'No missing released volumes matching current recommendation passes.',
+                          !hasActiveRules
+                              ? 'Set up recommendation rules in Rule Studio to generate target recommendations.'
+                              : (isGames
+                                  ? 'No missing released games matching current recommendation passes.'
+                                  : 'No missing released volumes matching current recommendation passes.'),
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodySmall,
                         ),
@@ -1035,7 +715,9 @@ class DashboardScreen extends ConsumerWidget {
                             ),
                           ),
                           Text(
-                            'Tracking out-of-stock and upcoming releases',
+                            isGames
+                                ? 'Tracking out-of-stock and upcoming game releases'
+                                : 'Tracking out-of-stock and upcoming releases',
                             style: theme.textTheme.bodySmall,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1151,7 +833,7 @@ class DashboardScreen extends ConsumerWidget {
         onPressed: () => LogTransactionSheet.show(context),
         backgroundColor: AppColors.caramelizedAmber,
         foregroundColor: Colors.white,
-        tooltip: 'Log Acquisition',
+        tooltip: isGames ? 'Log Game Acquisition' : 'Log Acquisition',
         child: const Icon(Icons.add_shopping_cart_rounded),
       ),
     );
@@ -1222,6 +904,13 @@ class _WatchlistItemCard extends StatelessWidget {
             ? 'Releases ${DateFormatter.formatDisplay(volume.releaseDate!)}'
             : null);
 
+    final customTitle = volume.customMetadata['title'] as String?;
+    final itemType = volume.customMetadata['itemType'] as String?;
+    final isDlc = itemType == 'dlc';
+    final volLabel = customTitle != null && customTitle.isNotEmpty
+        ? (isDlc ? 'DLC · $customTitle' : customTitle)
+        : 'Vol. ${DateFormatter.formatVolumeNumber(volume.volumeNumber)}';
+
     return CaneleCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       margin: const EdgeInsets.only(bottom: 8),
@@ -1263,7 +952,7 @@ class _WatchlistItemCard extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      'Vol. ${DateFormatter.formatVolumeNumber(volume.volumeNumber)}',
+                      volLabel,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: isDark ? AppColors.darkTextPrimary : AppColors.deepCaramel,

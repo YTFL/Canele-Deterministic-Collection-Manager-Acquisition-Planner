@@ -5,10 +5,13 @@ import '../../core/utils/currency_helper.dart';
 import '../../core/utils/date_formatter.dart';
 import '../../core/utils/type_helper.dart';
 import '../../core/utils/uuid_generator.dart';
+import '../../core/utils/workspace_terminology.dart';
+import '../../models/profile.dart';
 import '../../models/series.dart';
 import '../../models/volume.dart';
 import '../../models/purchase_transaction.dart';
 import '../../providers/database_provider.dart';
+import '../../providers/profile_provider.dart';
 import '../../providers/quota_provider.dart';
 import '../../providers/series_provider.dart';
 import '../widgets/canele_card.dart';
@@ -30,6 +33,10 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
   String _volumeFilter = 'all'; // all, missing, owned
 
   void _showAddVolumeDialog({Volume? existingVolume}) async {
+    final activeProfile = ref.read(profileNotifierProvider).activeProfile;
+    final isGames = activeProfile.type == ProfileType.games;
+    final terms = activeProfile.terms;
+
     final isEditing = existingVolume != null;
     String defaultVolNum = '1';
     if (!isEditing) {
@@ -45,6 +52,14 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
         defaultVolNum = DateFormatter.formatVolumeNumber(nextVol);
       }
     }
+
+    final existingTitle = existingVolume?.customMetadata['title'] as String? ?? '';
+    final existingType = (existingVolume?.customMetadata['itemType'] as String?) ?? (isGames ? 'game' : 'volume');
+    final existingParent = existingVolume?.customMetadata['parentGameTitle'] as String?;
+
+    final titleController = TextEditingController(text: existingTitle);
+    String selectedItemType = existingType;
+    String? selectedParentGame = existingParent;
 
     final volNumController = TextEditingController(
       text: isEditing
@@ -82,21 +97,104 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            final dialogTitle = isEditing
+                ? (isGames ? 'Edit Game / DLC' : 'Edit ${terms.itemLabel}')
+                : (isGames ? 'Add Game or DLC' : 'Add New ${terms.itemLabel}');
+
             return AlertDialog(
-              title: Text(isEditing ? 'Edit Volume' : 'Add New Volume'),
+              title: Text(dialogTitle),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Volume Number (Decimal supported)
-                    Text('Volume Number', style: Theme.of(context).textTheme.titleSmall),
+                    // Item Type Selector (for Games)
+                    if (isGames) ...[
+                      Text('Item Type', style: Theme.of(context).textTheme.titleSmall),
+                      const SizedBox(height: 6),
+                      SegmentedButton<String>(
+                        showSelectedIcon: false,
+                        segments: const [
+                          ButtonSegment(
+                            value: 'game',
+                            label: Text('Game'),
+                            icon: Icon(Icons.sports_esports_rounded, size: 16),
+                          ),
+                          ButtonSegment(
+                            value: 'dlc',
+                            label: Text('DLC / Add-on'),
+                            icon: Icon(Icons.extension_rounded, size: 16),
+                          ),
+                        ],
+                        selected: {selectedItemType},
+                        onSelectionChanged: (set) => setDialogState(() => selectedItemType = set.first),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Game or DLC Title
+                      Text(
+                        selectedItemType == 'dlc' ? 'DLC Title / Name' : 'Game Title',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 4),
+                      TextField(
+                        controller: titleController,
+                        decoration: InputDecoration(
+                          hintText: selectedItemType == 'dlc'
+                              ? 'e.g. Shadow of the Erdtree, Phantom Liberty'
+                              : 'e.g. Elden Ring, Dark Souls III',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Associated Game Dropdown for DLCs
+                      if (selectedItemType == 'dlc') ...[
+                        () {
+                          final currentSeriesVolumes = ref
+                              .read(volumesNotifierProvider)
+                              .where((v) => v.seriesId == widget.seriesId && v.id != existingVolume?.id)
+                              .toList();
+                          final existingGames = currentSeriesVolumes
+                              .where((v) => (v.customMetadata['itemType'] as String?)?.toLowerCase() != 'dlc')
+                              .map((v) => v.customMetadata['title'] as String?)
+                              .whereType<String>()
+                              .where((t) => t.isNotEmpty)
+                              .toSet()
+                              .toList();
+
+                          if (existingGames.isEmpty) return const SizedBox.shrink();
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Associated Game', style: Theme.of(context).textTheme.titleSmall),
+                              const SizedBox(height: 4),
+                              DropdownButtonFormField<String?>(
+                                initialValue: selectedParentGame != null && existingGames.contains(selectedParentGame)
+                                    ? selectedParentGame
+                                    : null,
+                                hint: const Text('Select Game in Series (Optional)'),
+                                items: [
+                                  const DropdownMenuItem<String?>(value: null, child: Text('General / Franchise DLC')),
+                                  ...existingGames.map((g) => DropdownMenuItem<String?>(value: g, child: Text(g))),
+                                ],
+                                onChanged: (val) => setDialogState(() => selectedParentGame = val),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                          );
+                        }(),
+                      ],
+                    ],
+
+                    // Volume / Sequence Number
+                    Text(isGames ? 'Order / Sequence #' : 'Volume Number', style: Theme.of(context).textTheme.titleSmall),
                     const SizedBox(height: 4),
                     TextField(
                       controller: volNumController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
-                        hintText: 'e.g. 12 or 11.5 for side stories',
+                      decoration: InputDecoration(
+                        hintText: isGames ? 'e.g. 1 or 2' : 'e.g. 12 or 11.5 for side stories',
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -312,6 +410,20 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
 
                     final priceVal = CurrencyHelper.parsePrice(priceController.text.trim());
 
+                    final meta = Map<String, dynamic>.from(existingVolume?.customMetadata ?? {});
+                    if (isGames || titleController.text.trim().isNotEmpty) {
+                      final inputTitle = titleController.text.trim();
+                      meta['title'] = inputTitle.isNotEmpty
+                          ? inputTitle
+                          : (isGames ? (selectedItemType == 'dlc' ? 'DLC' : currentSeries?.title ?? 'Game') : '');
+                      meta['itemType'] = selectedItemType;
+                      if (selectedItemType == 'dlc' && selectedParentGame != null && selectedParentGame!.trim().isNotEmpty) {
+                        meta['parentGameTitle'] = selectedParentGame;
+                      } else {
+                        meta.remove('parentGameTitle');
+                      }
+                    }
+
                     final volume = Volume(
                       id: isEditing ? existingVolume.id : UuidGenerator.generate(),
                       seriesId: widget.seriesId,
@@ -323,6 +435,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                       isGift: isGift,
                       price: priceVal > 0 ? priceVal : null,
                       currency: priceVal > 0 ? selectedCurrency : (isEditing ? existingVolume.currency : selectedCurrency),
+                      customMetadata: meta,
                     );
 
                     await ref.read(volumesNotifierProvider.notifier).saveVolume(volume);
@@ -341,7 +454,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
 
                     if (ctx.mounted) Navigator.of(ctx).pop(true);
                   },
-                  child: Text(isEditing ? 'Save' : 'Add Volume'),
+                  child: Text(isEditing ? 'Save' : (isGames ? 'Add Item' : 'Add ${terms.itemLabel}')),
                 ),
               ],
             );
@@ -356,6 +469,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
   }
 
   void _showBatchAddDialog(BuildContext context) {
+    final activeProfile = ref.read(profileNotifierProvider).activeProfile;
+    final terms = activeProfile.terms;
+
     final currentVolumes = ref
         .read(volumesNotifierProvider)
         .where((v) => v.seriesId == widget.seriesId)
@@ -376,20 +492,20 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: const Text('Batch Add Volumes'),
+          title: Text('Batch Add ${terms.itemsLabel}'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: startController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Start Volume Number'),
+                decoration: InputDecoration(labelText: 'Start ${terms.itemLabel} Number'),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: endController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'End Volume Number'),
+                decoration: InputDecoration(labelText: 'End ${terms.itemLabel} Number'),
               ),
             ],
           ),
@@ -418,7 +534,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                 }
                 if (ctx.mounted) Navigator.of(ctx).pop();
               },
-              child: const Text('Create Volumes'),
+              child: Text('Create ${terms.itemsLabel}'),
             ),
           ],
         );
@@ -427,11 +543,14 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
   }
 
   void _showBulkMarkSheet(BuildContext context, Series series, List<Volume> allVolumes) {
+    final activeProfile = ref.read(profileNotifierProvider).activeProfile;
+    final terms = activeProfile.terms;
+
     if (allVolumes.isEmpty) {
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
         ..showSnackBar(
-          const SnackBar(content: Text('No volumes to mark.')),
+          SnackBar(content: Text('No ${terms.itemsLabel.toLowerCase()} to mark.')),
         );
       return;
     }
@@ -450,22 +569,26 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
   }
 
   Future<String?> _showAddCustomTypeDialog(BuildContext context) async {
+    final activeProfile = ref.read(profileNotifierProvider).activeProfile;
+    final terms = activeProfile.terms;
+    final isGames = activeProfile.type == ProfileType.games;
     final controller = TextEditingController();
+
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Add Custom Book Type'),
+        title: Text('Add Custom ${terms.targetFormatLabel}'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Enter custom book format / type name:'),
+            Text('Enter custom ${isGames ? 'platform' : 'book format'} name:'),
             const SizedBox(height: 10),
             TextField(
               controller: controller,
               autofocus: true,
-              decoration: const InputDecoration(
-                hintText: 'e.g. Manhwa, Webtoon, Artbook',
+              decoration: InputDecoration(
+                hintText: isGames ? 'e.g. Steam, Xbox Series, Switch' : 'e.g. Manhwa, Webtoon, Artbook',
               ),
             ),
           ],
@@ -487,6 +610,10 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
   }
 
   void _showEditSeriesDialog(Series series) async {
+    final activeProfile = ref.read(profileNotifierProvider).activeProfile;
+    final terms = activeProfile.terms;
+    final isGames = activeProfile.type == ProfileType.games;
+
     final titleController = TextEditingController(text: series.title);
     final priceController = TextEditingController(
       text: series.seriesPrice != null && series.seriesPrice! > 0
@@ -518,7 +645,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             }
 
             return AlertDialog(
-              title: const Text('Edit Series'),
+              title: Text('Edit ${terms.groupLabel}'),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -529,40 +656,42 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     TextField(controller: titleController),
                     const SizedBox(height: 12),
 
-                    Text('Type', style: Theme.of(context).textTheme.titleSmall),
-                    const SizedBox(height: 4),
-                    DropdownButtonFormField<String>(
-                      initialValue: type,
-                      items: [
-                        ...availableTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))),
-                        const DropdownMenuItem(
-                          value: '__ADD_NEW__',
-                          child: Row(
-                            children: [
-                              Icon(Icons.add_rounded, size: 16, color: AppColors.caramelizedAmber),
-                              SizedBox(width: 4),
-                              Text('+ Add New Type...', style: TextStyle(color: AppColors.caramelizedAmber, fontWeight: FontWeight.w700)),
-                            ],
+                    if (!isGames) ...[
+                      Text(terms.targetFormatLabel, style: Theme.of(context).textTheme.titleSmall),
+                      const SizedBox(height: 4),
+                      DropdownButtonFormField<String>(
+                        initialValue: type,
+                        items: [
+                          ...availableTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))),
+                          const DropdownMenuItem(
+                            value: '__ADD_NEW__',
+                            child: Row(
+                              children: [
+                                Icon(Icons.add_rounded, size: 16, color: AppColors.caramelizedAmber),
+                                SizedBox(width: 4),
+                                Text('+ Add New Type...', style: TextStyle(color: AppColors.caramelizedAmber, fontWeight: FontWeight.w700)),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-                      onChanged: (val) async {
-                        if (val == '__ADD_NEW__') {
-                          final custom = await _showAddCustomTypeDialog(context);
-                          if (custom != null && custom.isNotEmpty) {
-                            setDialogState(() {
-                              if (!availableTypes.contains(custom)) {
-                                availableTypes.add(custom);
-                              }
-                              type = custom;
-                            });
+                        ],
+                        onChanged: (val) async {
+                          if (val == '__ADD_NEW__') {
+                            final custom = await _showAddCustomTypeDialog(context);
+                            if (custom != null && custom.isNotEmpty) {
+                              setDialogState(() {
+                                if (!availableTypes.contains(custom)) {
+                                  availableTypes.add(custom);
+                                }
+                                type = custom;
+                              });
+                            }
+                          } else if (val != null) {
+                            setDialogState(() => type = val);
                           }
-                        } else if (val != null) {
-                          setDialogState(() => type = val);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 12),
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                    ],
 
                     Text('Collection Status', style: Theme.of(context).textTheme.titleSmall),
                     const SizedBox(height: 4),
@@ -591,10 +720,10 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     const SizedBox(height: 12),
 
                     // Default Volume Price
-                    Text('Default Price Per Volume (Optional)', style: Theme.of(context).textTheme.titleSmall),
+                    Text('Default Price Per ${terms.itemLabel} (Optional)', style: Theme.of(context).textTheme.titleSmall),
                     const SizedBox(height: 2),
                     Text(
-                      'Used for all volumes in this series unless an explicit price is entered for a volume',
+                      'Used for all ${terms.itemsLabel.toLowerCase()} in this ${terms.groupLabel.toLowerCase()} unless an explicit price is entered for a ${terms.itemLabel.toLowerCase()}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11),
                     ),
                     const SizedBox(height: 4),
@@ -611,7 +740,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                               prefixIcon: Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                                 child: CurrencySymbolText(
-                                  currencyCode: selectedDefaultVolCurrency,
+                                   currencyCode: selectedDefaultVolCurrency,
                                   baseFontSize: 15,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -636,10 +765,10 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     const SizedBox(height: 12),
 
                     // Combined Series Price
-                    Text('Combined Series Price (Optional)', style: Theme.of(context).textTheme.titleSmall),
+                    Text('Combined ${terms.groupLabel} Price (Optional)', style: Theme.of(context).textTheme.titleSmall),
                     const SizedBox(height: 2),
                     Text(
-                      'Total bundle price for the series instead of individual volume pricing',
+                      'Total bundle price for the ${terms.groupLabel.toLowerCase()} instead of individual ${terms.itemLabel.toLowerCase()} pricing',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11),
                     ),
                     const SizedBox(height: 4),
@@ -741,6 +870,10 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
     final stats = ref.watch(seriesStatsProvider(series.id));
     final ruleConfig = ref.watch(ruleConfigNotifierProvider);
     final exchangeRates = ref.watch(exchangeRatesNotifierProvider);
+    final activeProfile = ref.watch(profileNotifierProvider).activeProfile;
+    final terms = activeProfile.terms;
+    final isGames = activeProfile.type == ProfileType.games;
+
     final allVolumes = ref.watch(volumesNotifierProvider).where((v) => v.seriesId == series.id).toList()
       ..sort((a, b) => a.volumeNumber.compareTo(b.volumeNumber));
     final allTransactions = ref.watch(transactionsNotifierProvider);
@@ -759,7 +892,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
           IconButton(
             onPressed: () => _showEditSeriesDialog(series),
             icon: const Icon(Icons.edit_outlined),
-            tooltip: 'Edit Series',
+            tooltip: 'Edit ${terms.groupLabel}',
           ),
           PopupMenuButton<String>(
             key: const Key('series_detail_appbar_menu'),
@@ -768,10 +901,10 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
-                    title: const Text('Mark Series as Completed?'),
+                    title: Text('Mark ${terms.groupLabel} as Completed?'),
                     content: Text(
                       'Are you sure you want to mark "${series.title}" as completed?\n\n'
-                      'This will mark all ${allVolumes.length} volume(s) as purchased and move the series to Completed collection.',
+                      'This will mark all ${allVolumes.length} ${terms.itemsLabel.toLowerCase()} as purchased and move the ${terms.groupLabel.toLowerCase()} to Completed collection.',
                     ),
                     actions: [
                       TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
@@ -790,7 +923,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                       ..clearSnackBars()
                       ..showSnackBar(
                         SnackBar(
-                          content: Text('Marked "${series.title}" as Completed and all volumes as purchased!'),
+                          content: Text('Marked "${series.title}" as Completed and all ${terms.itemsLabel.toLowerCase()} as purchased!'),
                           backgroundColor: AppColors.statusSuccess,
                         ),
                       );
@@ -802,8 +935,8 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
-                    title: const Text('Delete Series?'),
-                    content: Text('Are you sure you want to delete "${series.title}" and all its volumes?'),
+                    title: Text('Delete ${terms.groupLabel}?'),
+                    content: Text('Are you sure you want to delete "${series.title}" and all its ${terms.itemsLabel.toLowerCase()}?'),
                     actions: [
                       TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
                       ElevatedButton(
@@ -833,25 +966,25 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     ],
                   ),
                 ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'bulk_mark',
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.checklist_rounded, color: AppColors.caramelizedAmber),
-                    SizedBox(width: 8),
-                    Flexible(child: Text('Bulk Mark Volumes')),
+                    const Icon(Icons.checklist_rounded, color: AppColors.caramelizedAmber),
+                    const SizedBox(width: 8),
+                    Flexible(child: Text('Bulk Mark ${terms.itemsLabel}')),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'delete',
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.delete_outline, color: AppColors.statusDanger),
-                    SizedBox(width: 8),
-                    Flexible(child: Text('Delete Series', style: TextStyle(color: AppColors.statusDanger))),
+                    const Icon(Icons.delete_outline, color: AppColors.statusDanger),
+                    const SizedBox(width: 8),
+                    Flexible(child: Text('Delete ${terms.groupLabel}', style: const TextStyle(color: AppColors.statusDanger))),
                   ],
                 ),
               ),
@@ -880,7 +1013,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          series.type.toUpperCase(),
+                          isGames
+                              ? ((series.customMetadata['isStandalone'] == true) ? 'GAME' : 'GAME SERIES')
+                              : series.type.toUpperCase(),
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
@@ -1019,14 +1154,14 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Action Buttons (Add Volume, Batch Add)
+            // Action Buttons (Add Volume / Game, Batch Add)
             Row(
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () => _showAddVolumeDialog(),
                     icon: const Icon(Icons.add_rounded, size: 18),
-                    label: const Text('Add Volume'),
+                    label: Text(isGames ? 'Add Game / DLC' : 'Add Volume'),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1046,7 +1181,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Volumes (${filteredVolumes.length})',
+                  '${terms.itemsLabel} (${filteredVolumes.length})',
                   style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 SegmentedButton<String>(
@@ -1073,7 +1208,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                 padding: const EdgeInsets.all(24),
                 child: Center(
                   child: Text(
-                    'No volumes match this filter.',
+                    'No ${terms.itemsLabel.toLowerCase()} match this filter.',
                     style: theme.textTheme.bodyMedium,
                   ),
                 ),
@@ -1179,6 +1314,10 @@ class _BulkMarkVolumesSheetState extends ConsumerState<_BulkMarkVolumesSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final activeProfile = ref.watch(profileNotifierProvider).activeProfile;
+    final terms = activeProfile.terms;
+    final isGames = activeProfile.type == ProfileType.games;
+
     final targetVolumes = _getTargetVolumes();
     final unownedCount = widget.allVolumes.where((v) => !v.isOwned).length;
 
@@ -1207,7 +1346,7 @@ class _BulkMarkVolumesSheetState extends ConsumerState<_BulkMarkVolumesSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Bulk Mark Volumes',
+                          'Bulk Mark ${terms.itemsLabel}',
                           style: theme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                             color: isDark ? AppColors.darkTextPrimary : AppColors.deepCaramel,
@@ -1215,7 +1354,7 @@ class _BulkMarkVolumesSheetState extends ConsumerState<_BulkMarkVolumesSheet> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${widget.series.title} · ${widget.allVolumes.length} volume(s)',
+                          '${widget.series.title} · ${widget.allVolumes.length} ${terms.itemsLabel.toLowerCase()}',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
                           ),
@@ -1232,7 +1371,7 @@ class _BulkMarkVolumesSheetState extends ConsumerState<_BulkMarkVolumesSheet> {
               const SizedBox(height: 16),
 
               // Target Scope Selector
-              Text('1. Target Volumes', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+              Text('1. Target ${terms.itemsLabel}', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 initialValue: _target,
@@ -1242,19 +1381,19 @@ class _BulkMarkVolumesSheetState extends ConsumerState<_BulkMarkVolumesSheet> {
                 items: [
                   DropdownMenuItem(
                     value: 'unowned',
-                    child: Text('Unowned Volumes Only ($unownedCount)'),
+                    child: Text('Unowned ${terms.itemsLabel} Only ($unownedCount)'),
                   ),
                   DropdownMenuItem(
                     value: 'all',
-                    child: Text('All Volumes (${widget.allVolumes.length})'),
+                    child: Text('All ${terms.itemsLabel} (${widget.allVolumes.length})'),
                   ),
-                  const DropdownMenuItem(
+                  DropdownMenuItem(
                     value: 'range',
-                    child: Text('Volume Number Range'),
+                    child: Text('${terms.itemLabel} Number Range'),
                   ),
                   DropdownMenuItem(
                     value: 'custom',
-                    child: Text('Choose Specific Volumes (${_selectedVolumeIds.length})'),
+                    child: Text('Choose Specific ${terms.itemsLabel} (${_selectedVolumeIds.length})'),
                   ),
                 ],
                 onChanged: (val) {
@@ -1273,9 +1412,9 @@ class _BulkMarkVolumesSheetState extends ConsumerState<_BulkMarkVolumesSheet> {
                       child: TextField(
                         controller: _startController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
-                          labelText: 'From Vol.',
-                          prefixIcon: Icon(Icons.first_page_rounded, size: 20),
+                        decoration: InputDecoration(
+                          labelText: isGames ? 'From Game #' : 'From Vol.',
+                          prefixIcon: const Icon(Icons.first_page_rounded, size: 20),
                         ),
                         onChanged: (_) => setState(() {}),
                       ),
@@ -1285,9 +1424,9 @@ class _BulkMarkVolumesSheetState extends ConsumerState<_BulkMarkVolumesSheet> {
                       child: TextField(
                         controller: _endController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
-                          labelText: 'To Vol.',
-                          prefixIcon: Icon(Icons.last_page_rounded, size: 20),
+                        decoration: InputDecoration(
+                          labelText: isGames ? 'To Game #' : 'To Vol.',
+                          prefixIcon: const Icon(Icons.last_page_rounded, size: 20),
                         ),
                         onChanged: (_) => setState(() {}),
                       ),
@@ -1343,11 +1482,20 @@ class _BulkMarkVolumesSheetState extends ConsumerState<_BulkMarkVolumesSheet> {
                     itemBuilder: (ctx, index) {
                       final vol = widget.allVolumes[index];
                       final isSelected = _selectedVolumeIds.contains(vol.id);
+                      final customTitle = vol.customMetadata['title'] as String?;
+                      final itemType = vol.customMetadata['itemType'] as String?;
+                      final itemLabel = isGames
+                          ? (customTitle != null && customTitle.isNotEmpty
+                              ? '${itemType == 'dlc' ? '[DLC] ' : ''}$customTitle'
+                              : 'Game #${DateFormatter.formatVolumeNumber(vol.volumeNumber)}')
+                          : 'Vol. ${DateFormatter.formatVolumeNumber(vol.volumeNumber)}';
+                      final statusLabel = vol.isOwned ? (vol.isGift ? " (Gift)" : " (Purchased)") : " (Unowned)";
+
                       return CheckboxListTile(
                         dense: true,
                         value: isSelected,
                         title: Text(
-                          'Vol. ${DateFormatter.formatVolumeNumber(vol.volumeNumber)}${vol.isOwned ? (vol.isGift ? " (Gift)" : " (Purchased)") : " (Unowned)"}',
+                          '$itemLabel$statusLabel',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
@@ -1422,8 +1570,8 @@ class _BulkMarkVolumesSheetState extends ConsumerState<_BulkMarkVolumesSheet> {
                     Expanded(
                       child: Text(
                         _action == 'unowned'
-                            ? 'Will unmark ${targetVolumes.length} volume(s) and remove transactions.'
-                            : 'Will mark ${targetVolumes.length} volume(s) as ${_action.toUpperCase()}.',
+                            ? 'Will unmark ${targetVolumes.length} ${terms.itemsLabel.toLowerCase()} and remove transactions.'
+                            : 'Will mark ${targetVolumes.length} ${terms.itemsLabel.toLowerCase()} as ${_action.toUpperCase()}.',
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,

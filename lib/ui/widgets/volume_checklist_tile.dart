@@ -108,17 +108,85 @@ class VolumeChecklistTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Top row: Volume title
-                Row(
-                  children: [
-                    Text(
-                      'Vol. ${DateFormatter.formatVolumeNumber(volume.volumeNumber)}',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
+                // Top row: Item title & optional game/DLC badges
+                () {
+                  final itemTitle = volume.customMetadata['title'] as String?;
+                  final itemType = (volume.customMetadata['itemType'] as String?)?.toLowerCase();
+                  final parentGameTitle = volume.customMetadata['parentGameTitle'] as String?;
+                  final hasItemTitle = itemTitle != null && itemTitle.trim().isNotEmpty;
+                  final isDlc = itemType == 'dlc';
+                  final isGame = itemType == 'game';
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          if (isDlc)
+                            Container(
+                              margin: const EdgeInsets.only(right: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: AppColors.statusInfo.withValues(alpha: isDark ? 0.25 : 0.15),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: AppColors.statusInfo.withValues(alpha: 0.4), width: 0.8),
+                              ),
+                              child: const Text(
+                                'DLC',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.statusInfo,
+                                ),
+                              ),
+                            )
+                          else if (isGame)
+                            Container(
+                              margin: const EdgeInsets.only(right: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: AppColors.caramelizedAmber.withValues(alpha: isDark ? 0.25 : 0.15),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: AppColors.caramelizedAmber.withValues(alpha: 0.4), width: 0.8),
+                              ),
+                              child: Text(
+                                'GAME',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: isDark ? AppColors.caramelizedAmberLight : AppColors.caramelizedAmber,
+                                ),
+                              ),
+                            ),
+                          Expanded(
+                            child: Text(
+                              hasItemTitle
+                                  ? itemTitle
+                                  : 'Vol. ${DateFormatter.formatVolumeNumber(volume.volumeNumber)}',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
+                      if (isDlc && parentGameTitle != null && parentGameTitle.trim().isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          'DLC for $parentGameTitle',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? AppColors.darkTextMuted : AppColors.deepCaramelMuted,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  );
+                }(),
 
                 // Next row: Availability tag / Gift tag and clean price typography
                 if (showSecondRow) ...[
@@ -218,7 +286,7 @@ class VolumeChecklistTile extends StatelessWidget {
                   children: [
                     Icon(Icons.edit_outlined, size: 18),
                     SizedBox(width: 8),
-                    Text('Edit Volume'),
+                    Text('Edit'),
                   ],
                 ),
               ),

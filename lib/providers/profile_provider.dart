@@ -2,7 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/database/hive_boxes.dart';
 import '../models/profile.dart';
+import '../models/rule_model.dart';
+import '../features/games/models/game_rule.dart';
 import '../services/profile_service.dart';
+import 'database_provider.dart';
 import 'quota_provider.dart';
 import 'rule_provider.dart';
 import 'series_provider.dart';
@@ -81,6 +84,20 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
     );
 
     await HiveBoxes.preOpenBoxesForProfile(profile.id);
+
+    // Seed default rules for the new workspace profile if empty
+    final ruleRepo = _ref.read(ruleRepositoryProvider);
+    if (ruleRepo.getRules().isEmpty) {
+      if (type == ProfileType.games) {
+        final box = HiveBoxes.getRulesBox(profile.id);
+        for (final r in GameRule.defaultRules()) {
+          await box.put(r.id, r.toMap());
+        }
+      } else {
+        await ruleRepo.saveAll(RuleModel.defaultRulesForProfile(type));
+      }
+    }
+
     _reloadStores();
     return profile;
   }

@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/type_helper.dart';
 import '../../core/utils/uuid_generator.dart';
+import '../../core/utils/workspace_terminology.dart';
+import '../../models/profile.dart';
 import '../../models/rule_model.dart';
+import '../../providers/profile_provider.dart';
 import '../../providers/rule_provider.dart';
 import '../../providers/series_provider.dart';
 
@@ -124,6 +127,9 @@ class _EditRuleSheetState extends ConsumerState<EditRuleSheet> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final allSeries = ref.watch(seriesNotifierProvider);
+    final activeProfile = ref.watch(profileNotifierProvider).activeProfile;
+    final terms = activeProfile.terms;
+    final isGames = activeProfile.type == ProfileType.games;
 
     return Container(
       decoration: BoxDecoration(
@@ -190,7 +196,7 @@ class _EditRuleSheetState extends ConsumerState<EditRuleSheet> {
                 }
               },
               decoration: InputDecoration(
-                hintText: 'e.g., Rush to Complete, Restock Priority',
+                hintText: isGames ? 'e.g., Rush to Complete Franchise, DLC Priority' : 'e.g., Rush to Complete, Restock Priority',
                 helperText: 'Rule name is mandatory for rule creation',
                 errorText: _hasNameError ? 'Rule name is mandatory for rule creation' : null,
               ),
@@ -198,16 +204,23 @@ class _EditRuleSheetState extends ConsumerState<EditRuleSheet> {
             const SizedBox(height: 16),
 
             // Scope Selector
-            Text('Series Scope', style: theme.textTheme.titleMedium),
+            Text(terms.scopeLabel, style: theme.textTheme.titleMedium),
             const SizedBox(height: 6),
             SegmentedButton<RuleScopeType>(
               showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(value: RuleScopeType.allSeries, label: Text('All')),
-                ButtonSegment(value: RuleScopeType.specificSeries, label: Text('Specific')),
-                ButtonSegment(value: RuleScopeType.formatType, label: Text('Format')),
+              segments: [
+                const ButtonSegment(value: RuleScopeType.allSeries, label: Text('All')),
+                const ButtonSegment(value: RuleScopeType.specificSeries, label: Text('Specific')),
+                if (!isGames) const ButtonSegment(value: RuleScopeType.formatType, label: Text('Format')),
               ],
-              selected: {_scopeType == RuleScopeType.tagBased ? RuleScopeType.allSeries : _scopeType},
+              selected: {
+                if (isGames && _scopeType == RuleScopeType.formatType)
+                  RuleScopeType.allSeries
+                else if (_scopeType == RuleScopeType.tagBased)
+                  RuleScopeType.allSeries
+                else
+                  _scopeType
+              },
               onSelectionChanged: (set) => setState(() => _scopeType = set.first),
               style: const ButtonStyle(
                 visualDensity: VisualDensity.compact,
@@ -218,10 +231,10 @@ class _EditRuleSheetState extends ConsumerState<EditRuleSheet> {
 
             // Specific Series Checklist Selector
             if (_scopeType == RuleScopeType.specificSeries) ...[
-              Text('Select Target Series (${_targetSeriesIds.length} selected)', style: theme.textTheme.bodyMedium),
+              Text('Select Target ${terms.groupLabel} (${_targetSeriesIds.length} selected)', style: theme.textTheme.bodyMedium),
               const SizedBox(height: 8),
               if (allSeries.isEmpty)
-                Text('No series found in collection.', style: theme.textTheme.bodySmall)
+                Text('No ${terms.groupLabel.toLowerCase()} found in collection.', style: theme.textTheme.bodySmall)
               else
                 Wrap(
                   spacing: 6,
@@ -250,10 +263,13 @@ class _EditRuleSheetState extends ConsumerState<EditRuleSheet> {
 
             // Format Type Dropdown
             if (_scopeType == RuleScopeType.formatType) ...[
-              Text('Target Book Format', style: theme.textTheme.bodyMedium),
+              Text(terms.targetFormatLabel, style: theme.textTheme.bodyMedium),
               const SizedBox(height: 6),
               () {
                 final availableTypes = TypeHelper.getAllAvailableTypes(allSeries.map((s) => s.type));
+                if (availableTypes.isEmpty) {
+                  availableTypes.addAll(['Light Novel', 'Manga', 'Comic', 'Book']);
+                }
                 final currentVal = _targetFormat != null
                     ? TypeHelper.formatTypeLabel(_targetFormat!)
                     : (availableTypes.isNotEmpty ? availableTypes.first : null);
@@ -284,17 +300,19 @@ class _EditRuleSheetState extends ConsumerState<EditRuleSheet> {
                         builder: (ctx) {
                           final controller = TextEditingController();
                           return AlertDialog(
-                            title: const Text('Add Custom Book Type'),
+                            title: Text('Add Custom ${terms.itemLabel} Type'),
                             content: Column(
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('Enter custom book format / type name:'),
+                                const Text('Enter custom format / type name:'),
                                 const SizedBox(height: 10),
                                 TextField(
                                   controller: controller,
                                   autofocus: true,
-                                  decoration: const InputDecoration(hintText: 'e.g. Manhwa, Webtoon, Artbook'),
+                                  decoration: const InputDecoration(
+                                    hintText: 'e.g. Manhwa, Webtoon, Artbook',
+                                  ),
                                 ),
                               ],
                             ),
@@ -330,12 +348,12 @@ class _EditRuleSheetState extends ConsumerState<EditRuleSheet> {
             const SizedBox(height: 6),
             DropdownButtonFormField<ProgressTriggerType>(
               initialValue: _progressTrigger,
-              items: const [
-                DropdownMenuItem(value: ProgressTriggerType.none, child: Text('None (Evaluate all unowned)')),
-                DropdownMenuItem(value: ProgressTriggerType.exactVolumesLeft, child: Text('Exact Volumes Left to Complete')),
-                DropdownMenuItem(value: ProgressTriggerType.leastRemainingVolumes, child: Text('Fewest Remaining Volumes')),
-                DropdownMenuItem(value: ProgressTriggerType.completionPercentage, child: Text('Completion % Threshold')),
-                DropdownMenuItem(value: ProgressTriggerType.gapFilling, child: Text('Sequential Gap Filling')),
+              items: [
+                const DropdownMenuItem(value: ProgressTriggerType.none, child: Text('None (Evaluate all unowned)')),
+                DropdownMenuItem(value: ProgressTriggerType.exactVolumesLeft, child: Text('Exact ${terms.itemsLabel} Left to Complete')),
+                DropdownMenuItem(value: ProgressTriggerType.leastRemainingVolumes, child: Text('Fewest Remaining ${terms.itemsLabel}')),
+                const DropdownMenuItem(value: ProgressTriggerType.completionPercentage, child: Text('Completion % Threshold')),
+                const DropdownMenuItem(value: ProgressTriggerType.gapFilling, child: Text('Sequential Gap Filling')),
               ],
               onChanged: (val) => setState(() => _progressTrigger = val!),
             ),
@@ -347,7 +365,7 @@ class _EditRuleSheetState extends ConsumerState<EditRuleSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Volume Threshold ($_volumeThresholdValue vol)', style: theme.textTheme.bodyMedium),
+                  Text('${terms.itemLabel} Threshold ($_volumeThresholdValue)', style: theme.textTheme.bodyMedium),
                   Row(
                     children: [
                       IconButton(
@@ -389,8 +407,8 @@ class _EditRuleSheetState extends ConsumerState<EditRuleSheet> {
             // Special Triggers (Restock Priority)
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Restock Priority'),
-              subtitle: const Text('Bump volumes marked as recently restocked or available on watchlist'),
+              title: Text(terms.restockPriorityLabel),
+              subtitle: Text(terms.restockPriorityDescription),
               activeThumbColor: AppColors.caramelizedAmber,
               value: _restockPriority,
               onChanged: (val) => setState(() => _restockPriority = val),
@@ -411,7 +429,7 @@ class _EditRuleSheetState extends ConsumerState<EditRuleSheet> {
                   onSelected: (val) => setState(() => _sortBy = SortCriteria.earliestReleaseDate),
                 ),
                 ChoiceChip(
-                  label: const Text('Lowest Volume #'),
+                  label: Text('Lowest ${terms.itemLabel} #'),
                   selected: _sortBy == SortCriteria.lowestVolumeNumber,
                   showCheckmark: false,
                   onSelected: (val) => setState(() => _sortBy = SortCriteria.lowestVolumeNumber),

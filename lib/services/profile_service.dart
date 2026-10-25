@@ -3,6 +3,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../core/database/database_migrator.dart';
 import '../core/database/hive_boxes.dart';
 import '../models/profile.dart';
+import '../features/games/models/game_rule.dart';
 
 class ProfileService {
   static final ProfileService _instance = ProfileService._internal();
@@ -132,7 +133,7 @@ class ProfileService {
     final cleanName = name.trim().isEmpty
         ? (type == ProfileType.books
             ? 'Books & Manga'
-            : (type == ProfileType.games ? 'Game Backlog' : 'My Collection'))
+            : (type == ProfileType.games ? 'Games' : 'My Collection'))
         : name.trim();
 
     final id = 'profile_${DateTime.now().millisecondsSinceEpoch}';
@@ -151,6 +152,16 @@ class ProfileService {
 
     // Pre-open all scoped boxes and seed default RuleConfig for this profile
     await HiveBoxes.preOpenBoxesForProfile(id);
+    final profile = getProfileById(id);
+    if (profile?.type == ProfileType.games) {
+      final rulesBox = HiveBoxes.getRulesBox(id);
+      if (rulesBox.isEmpty) {
+        final defaults = GameRule.defaultRules();
+        for (final r in defaults) {
+          await rulesBox.put(r.id, r.toMap());
+        }
+      }
+    }
 
     _refreshNotifiers(autoSwitch ? id : null);
 

@@ -52,12 +52,12 @@ void main() {
     test('Creates new Games workspace and switches into it', () async {
       final service = ProfileService.instance;
       final newProfile = await service.createProfile(
-        name: 'Game Backlog',
+        name: 'Games',
         type: ProfileType.games,
         icon: 'gamepad',
       );
 
-      expect(newProfile.name, 'Game Backlog');
+      expect(newProfile.name, 'Games');
       expect(newProfile.type, ProfileType.games);
       expect(service.activeProfileId, newProfile.id);
       expect(service.getAllProfiles().length, 2);

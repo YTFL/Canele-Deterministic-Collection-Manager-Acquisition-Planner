@@ -122,7 +122,7 @@ void main() {
 
     // Step 2: Name Input
     expect(find.text('Step 2 of 3'), findsOneWidget);
-    expect(find.text('Game Backlog'), findsOneWidget);
+    expect(find.text('Games'), findsOneWidget);
 
     // Tap Next
     await tester.tap(find.byKey(const Key('workspace_step_next_button')));
@@ -137,7 +137,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify callback arguments passed from the 3-step flow
-    expect(createdName, 'Game Backlog');
+    expect(createdName, 'Games');
     expect(createdType, ProfileType.games);
     expect(createdIcon, 'gamepad');
     expect(createdSchema, isNull);

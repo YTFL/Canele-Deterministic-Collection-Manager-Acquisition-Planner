@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:canele/models/profile.dart';
 import 'package:canele/models/series.dart';
 import 'package:canele/models/volume.dart';
-import 'package:canele/models/game_item.dart';
 import 'package:canele/models/custom_item.dart';
 import 'package:canele/services/universal_exporter.dart';
 
@@ -72,50 +71,71 @@ void main() {
     test('generateCollectionRows generates gaming columns for Games profile', () {
       final gamesProfile = Profile(
         id: 'p_games',
-        name: 'Game Backlog',
+        name: 'Game Library',
         type: ProfileType.games,
         createdAt: DateTime(2026, 1, 1),
       );
 
-      final game = const GameItem(
-        id: 'g1',
-        title: 'Elden Ring',
-        platform: 'pc',
-        backlogStatus: GameBacklogStatus.playing,
-        playtimeHours: 72.5,
-        price: 59.99,
-        currency: 'USD',
-        notes: 'Masterpiece open world RPG',
-        tags: ['Soulsborne', 'Action RPG'],
-      );
+      final seriesList = [
+        Series(
+          id: 'g_series_1',
+          title: 'The Witcher Series',
+          type: 'pc',
+          collectionStatus: 'active',
+          totalVolumesReleased: 3,
+          tags: ['RPG', 'Fantasy'],
+        ),
+      ];
+
+      final volumesList = [
+        Volume(
+          id: 'v1',
+          seriesId: 'g_series_1',
+          volumeNumber: 1,
+          isOwned: true,
+          price: 29.99,
+          currency: 'USD',
+          customMetadata: {'title': 'The Witcher 3: Wild Hunt', 'itemType': 'game'},
+        ),
+        Volume(
+          id: 'v2',
+          seriesId: 'g_series_1',
+          volumeNumber: 2,
+          isOwned: true,
+          price: 19.99,
+          currency: 'USD',
+          customMetadata: {'title': 'Blood and Wine DLC', 'itemType': 'dlc', 'parentGameTitle': 'The Witcher 3: Wild Hunt'},
+        ),
+      ];
 
       final rows = UniversalExporter.generateCollectionRows(
         profile: gamesProfile,
-        seriesList: [game.toSeries()],
+        seriesList: seriesList,
+        volumesList: volumesList,
       );
 
       expect(rows.length, 2);
       final header = rows[0];
       expect(header, [
-        'Title',
+        'Game Series',
         'Platform',
+        'Type',
+        'Total Games & DLCs',
+        'Owned Games & DLCs',
+        'Total Spent (USD)',
         'Status',
-        'Playtime (Hours)',
-        'Price (USD)',
-        'Currency',
-        'Release Date',
-        'Notes',
         'Tags',
       ]);
 
       final dataRow = rows[1];
-      expect(dataRow[0], 'Elden Ring');
-      expect(dataRow[1], 'PC / Steam');
-      expect(dataRow[2], 'Playing');
-      expect(dataRow[3], '72.5');
-      expect(dataRow[4], '59.99');
-      expect(dataRow[7], 'Masterpiece open world RPG');
-      expect(dataRow[8], contains('Soulsborne'));
+      expect(dataRow[0], 'The Witcher Series');
+      expect(dataRow[1], 'PC');
+      expect(dataRow[2], 'Series');
+      expect(dataRow[3], 3);
+      expect(dataRow[4], 2);
+      expect(dataRow[5], '49.98');
+      expect(dataRow[6], 'active');
+      expect(dataRow[7], contains('RPG'));
     });
 
     test('generateCollectionRows generates dynamic columns for Custom profile', () {
@@ -184,20 +204,20 @@ void main() {
         createdAt: DateTime(2026, 1, 1),
       );
 
-      final game = const GameItem(
+      final gameSeries = Series(
         id: 'g2',
         title: 'Hollow Knight: Silksong',
-        platform: 'switch',
-        backlogStatus: GameBacklogStatus.wishlist,
+        type: 'switch',
+        collectionStatus: 'wishlist',
       );
 
       final csv = UniversalExporter.exportCollectionToCsv(
         profile: gamesProfile,
-        seriesList: [game.toSeries()],
+        seriesList: [gameSeries],
       );
 
-      expect(csv, contains('Title,Platform,Status,Playtime (Hours)'));
-      expect(csv, contains('Hollow Knight: Silksong,Nintendo Switch,Wishlist'));
+      expect(csv, contains('Game Series,Platform,Type'));
+      expect(csv, contains('Hollow Knight: Silksong,Nintendo Switch,Series,0,0,0.00,wishlist'));
     });
   });
 

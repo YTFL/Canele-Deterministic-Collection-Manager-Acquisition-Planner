@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/date_formatter.dart';
+import '../../core/utils/workspace_terminology.dart';
 import '../../services/quota_engine.dart';
+import '../../providers/profile_provider.dart';
 import '../../providers/quota_provider.dart';
 import 'canele_card.dart';
 
@@ -17,6 +19,7 @@ class QuotaStatusCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final config = ref.watch(ruleConfigNotifierProvider);
+    final terms = ref.watch(profileNotifierProvider).activeProfile.terms;
 
     final now = DateTime.now();
     final currentMonthKey = DateFormatter.toMonthKey(now);
@@ -245,7 +248,7 @@ class QuotaStatusCard extends ConsumerWidget {
                           content: Text(
                             isCurrentMonthSkipped
                                 ? 'Resumed regular quota for ${DateFormatter.formatMonthYear(now)}'
-                                : 'Marked ${DateFormatter.formatMonthYear(now)} as No-Book Month',
+                                : 'Marked ${DateFormatter.formatMonthYear(now)} as ${terms.noPurchaseMonthSingleTitle}',
                           ),
                           backgroundColor: AppColors.caramelizedAmber,
                           duration: const Duration(seconds: 2),

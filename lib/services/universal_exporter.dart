@@ -13,7 +13,6 @@ import 'profile_service.dart';
 import '../models/profile.dart';
 import '../models/series.dart';
 import '../models/volume.dart';
-import '../models/game_item.dart';
 import '../models/custom_item.dart';
 import '../models/purchase_transaction.dart';
 import '../models/rule_config.dart';
@@ -143,28 +142,77 @@ class UniversalExporter {
     switch (activeProfile.type) {
       case ProfileType.games:
         rows.add([
-          'Title',
+          'Game Series',
           'Platform',
+          'Type',
+          'Total Games & DLCs',
+          'Owned Games & DLCs',
+          'Total Spent ($baseCurrency)',
           'Status',
-          'Playtime (Hours)',
-          'Price ($baseCurrency)',
-          'Currency',
-          'Release Date',
-          'Notes',
           'Tags',
         ]);
+
         for (final s in allSeries) {
-          final game = GameItem.fromSeries(s);
+          final sVolumes = allVolumes.where((v) => v.seriesId == s.id).toList();
+          double sSpent = 0.0;
+          final purchasedVolumes = sVolumes.where((v) => v.isOwned && !v.isGift).toList();
+          if (s.seriesPrice != null && s.seriesPrice! > 0) {
+            if (purchasedVolumes.isNotEmpty) {
+              sSpent = CurrencyHelper.convert(
+                amount: s.seriesPrice!,
+                fromCurrency: s.currency ?? baseCurrency,
+                toCurrency: baseCurrency,
+                rates: exchangeRates,
+              );
+            }
+          } else {
+            for (final v in sVolumes) {
+              if (!v.isOwned || v.isGift) continue;
+              final txs = allTxs.where((t) => t.volumeId == v.id && t.quotaBucket != 'gift').toList();
+              if (txs.isNotEmpty && txs.first.price > 0) {
+                final tx = txs.first;
+                final txCurr = tx.currency ?? baseCurrency;
+                sSpent += CurrencyHelper.convert(
+                  amount: tx.price,
+                  fromCurrency: txCurr,
+                  toCurrency: baseCurrency,
+                  rates: exchangeRates,
+                );
+              } else if (v.price != null && v.price! > 0) {
+                final volCurr = v.currency ?? baseCurrency;
+                sSpent += CurrencyHelper.convert(
+                  amount: v.price!,
+                  fromCurrency: volCurr,
+                  toCurrency: baseCurrency,
+                  rates: exchangeRates,
+                );
+              } else {
+                final defPrice = s.defaultVolumePrice ?? CurrencyHelper.defaultVolumePrice;
+                final defCurr = s.defaultVolumeCurrency ?? CurrencyHelper.defaultVolumeCurrency;
+                sSpent += CurrencyHelper.convert(
+                  amount: defPrice,
+                  fromCurrency: defCurr,
+                  toCurrency: baseCurrency,
+                  rates: exchangeRates,
+                );
+              }
+            }
+          }
+          final ownedCount = sVolumes.where((v) => v.isOwned).length;
+          final totalCount = s.totalVolumesReleased ?? sVolumes.length;
+          final isSingle = s.releaseStatus != 'ongoing' && (totalCount <= 1 && sVolumes.length <= 1);
+          final typeLabel = isSingle ? 'Standalone' : 'Series';
+          final tagsStr = s.tags.join('; ');
+
           rows.add([
-            game.title,
-            game.platformInfo.displayName,
-            game.backlogStatus.label,
-            game.playtimeHours?.toStringAsFixed(1) ?? '0.0',
-            game.price != null ? game.price!.toStringAsFixed(2) : '',
-            game.currency ?? baseCurrency,
-            game.releaseDate != null ? game.releaseDate!.toIso8601String().split('T').first : '',
-            game.notes ?? '',
-            game.tags.join('; '),
+            s.title,
+            _formatPlatformName(s.type),
+            typeLabel,
+            totalCount,
+            ownedCount,
+            sSpent > 0 ? sSpent.toStringAsFixed(2) : '0.00',
+            s.collectionStatus,
+            tagsStr,
           ]);
         }
         break;
@@ -365,6 +413,25 @@ class UniversalExporter {
         return 'Custom';
       default:
         return type.isNotEmpty ? '${type[0].toUpperCase()}${type.substring(1)}' : type;
+    }
+  }
+
+  static String _formatPlatformName(String platform) {
+    switch (platform.toLowerCase()) {
+      case 'pc':
+      case 'steam':
+        return 'PC';
+      case 'playstation':
+      case 'ps5':
+        return 'PlayStation 5';
+      case 'ps4':
+        return 'PlayStation 4';
+      case 'switch':
+        return 'Nintendo Switch';
+      case 'xbox':
+        return 'Xbox';
+      default:
+        return platform.isNotEmpty ? '${platform[0].toUpperCase()}${platform.substring(1)}' : platform;
     }
   }
 }

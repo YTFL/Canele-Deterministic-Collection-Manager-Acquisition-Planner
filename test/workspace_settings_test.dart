@@ -48,9 +48,9 @@ void main() {
         createdAt: DateTime(2026, 1, 1),
       );
       final gamesTerm = WorkspaceTerminology(gamesProfile);
-      expect(gamesTerm.groupLabel, equals('Franchise'));
+      expect(gamesTerm.groupLabel, equals('Game Series'));
       expect(gamesTerm.itemLabel, equals('Game'));
-      expect(gamesTerm.itemsLabel, equals('Games'));
+      expect(gamesTerm.itemsLabel, equals('Games & DLCs'));
 
       final customProfile = Profile(
         id: 'p_custom',

@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/date_formatter.dart';
+import '../../core/utils/workspace_terminology.dart';
+import '../../models/profile.dart';
 import '../../models/rule_model.dart';
+import '../../providers/profile_provider.dart';
 import '../../providers/rule_provider.dart';
 import '../../providers/quota_provider.dart';
 import '../widgets/canele_card.dart';
 import '../widgets/canele_month_year_picker.dart';
 import '../widgets/rule_card.dart';
 import '../widgets/edit_rule_sheet.dart';
+import '../../features/games/ui/views/game_rule_studio_view.dart';
 import '../widgets/workspace_switcher_app_bar_title.dart';
 
 class RuleStudioScreen extends ConsumerStatefulWidget {
@@ -62,6 +66,7 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
       context: context,
       builder: (ctx) {
         final config = ref.read(ruleConfigNotifierProvider);
+        final terms = ref.read(profileNotifierProvider).activeProfile.terms;
 
         return StatefulBuilder(
           builder: (context, setDialogState) {
@@ -81,7 +86,7 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Bonus Books Count:', style: TextStyle(fontWeight: FontWeight.w600)),
+                      Text('Bonus ${terms.pluralItemLabel} Count:', style: const TextStyle(fontWeight: FontWeight.w600)),
                       Row(
                         children: [
                           IconButton(
@@ -149,11 +154,12 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
       context: context,
       builder: (ctx) {
         final config = ref.read(ruleConfigNotifierProvider);
+        final terms = ref.read(profileNotifierProvider).activeProfile.terms;
 
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('Add No-Book Month'),
+              title: Text('Add ${terms.noPurchaseMonthSingleTitle}'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -165,9 +171,9 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
                     onChanged: (d) => setDialogState(() => selectedMonth = d),
                   ),
                   const SizedBox(height: 14),
-                  const Text(
-                    'In a No-Book Month, your regular monthly acquisition target is set to 0. Use this for budget pauses, vacations, or catch-up reading months.',
-                    style: TextStyle(fontSize: 12),
+                  Text(
+                    terms.noPurchaseMonthSingleDescription,
+                    style: const TextStyle(fontSize: 12),
                   ),
                 ],
               ),
@@ -191,13 +197,13 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
                         ..clearSnackBars()
                         ..showSnackBar(
                         SnackBar(
-                          content: Text('Marked ${DateFormatter.formatMonthYear(selectedMonth)} as a No-Book Month!'),
+                          content: Text('Marked ${DateFormatter.formatMonthYear(selectedMonth)} as a ${terms.noPurchaseMonthSingleTitle}!'),
                           backgroundColor: AppColors.caramelizedAmber,
                         ),
                       );
                     }
                   },
-                  child: const Text('Add No-Book Month'),
+                  child: Text('Add ${terms.noPurchaseMonthSingleTitle}'),
                 ),
               ],
             );
@@ -262,15 +268,16 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
 
   void _onToggleRecurringNoBookMonth(int monthNum) async {
     final config = ref.read(ruleConfigNotifierProvider);
+    final terms = ref.read(profileNotifierProvider).activeProfile.terms;
     final isSelected = config.recurringNoBookMonths.contains(monthNum);
 
     // Prompt user for scope
     final scopeChoice = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(isSelected ? 'Remove Recurring No-Book Month?' : 'Add Recurring No-Book Month?'),
+        title: Text(isSelected ? 'Remove Recurring ${terms.noPurchaseMonthSingleTitle}?' : 'Add Recurring ${terms.noPurchaseMonthSingleTitle}?'),
         content: Text(
-          'How would you like to apply this recurring paused/no-book schedule for ${_monthNames[monthNum - 1]}?\n\n'
+          'How would you like to apply this recurring paused/${terms.noPurchaseMonthSingleTitle.toLowerCase()} schedule for ${_monthNames[monthNum - 1]}?\n\n'
           '• Apply from start date: Recalculates full historical quota timeline from start.\n'
           '• Apply from current month forward: Keeps past quota calculations intact.',
         ),
@@ -306,7 +313,7 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
         ..clearSnackBars()
         ..showSnackBar(
         SnackBar(
-          content: Text('Updated recurring no-book schedule for ${_monthNames[monthNum - 1]}!'),
+          content: Text('Updated recurring ${terms.noPurchaseMonthSingleTitle.toLowerCase()} schedule for ${_monthNames[monthNum - 1]}!'),
           backgroundColor: AppColors.caramelizedAmber,
         ),
       );
@@ -359,6 +366,9 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
 
     final rules = ref.watch(rulesNotifierProvider);
     final config = ref.watch(ruleConfigNotifierProvider);
+    final activeProfile = ref.watch(profileNotifierProvider).activeProfile;
+    if (activeProfile.type == ProfileType.games) return const GameRuleStudioView();
+    final terms = activeProfile.terms;
     final currentMonthKey = DateFormatter.toMonthKey(DateTime.now());
 
     return Scaffold(
@@ -417,6 +427,27 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
                           icon: const Icon(Icons.add_rounded),
                           label: const Text('Create First Rule'),
                         ),
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            final defaults = RuleModel.defaultRulesForProfile(activeProfile.type);
+                            for (final r in defaults) {
+                              await ref.read(rulesNotifierProvider.notifier).saveRule(r);
+                            }
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context)
+                                ..clearSnackBars()
+                                ..showSnackBar(
+                                  SnackBar(
+                                    content: Text('Loaded ${defaults.length} default rules for ${activeProfile.name}!'),
+                                    backgroundColor: AppColors.statusSuccess,
+                                  ),
+                                );
+                            }
+                          },
+                          icon: const Icon(Icons.auto_fix_high_rounded, size: 18),
+                          label: Text(terms.emptyRulesActionLabel),
+                        ),
                       ],
                     ),
                   ),
@@ -467,6 +498,7 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
                               child: RuleCard(
                                 rule: rule,
                                 displayIndex: index,
+                                terms: terms,
                                 onTap: () => _showEditRuleSheet(context, rule: rule),
                                 onToggleEnabled: (val) {
                                   ref.read(rulesNotifierProvider.notifier).toggleRule(rule.id, val);
@@ -528,7 +560,7 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('Regular Cadence', style: theme.textTheme.titleMedium),
-                          Text('Target books per active month', style: theme.textTheme.bodySmall),
+                          Text('Target ${terms.cadenceUnit} per active month', style: theme.textTheme.bodySmall),
                         ],
                       ),
                       Row(
@@ -619,8 +651,8 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Recurring No-Book Months', style: theme.textTheme.titleMedium),
-                      Text('Select annual months with 0 regular book budget (e.g. Budget pause, Travel)', style: theme.textTheme.bodySmall),
+                      Text(terms.noPurchaseMonthTitle, style: theme.textTheme.titleMedium),
+                      Text(terms.noPurchaseMonthDescription, style: theme.textTheme.bodySmall),
                       const SizedBox(height: 12),
                       Column(
                         children: [
@@ -738,7 +770,7 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
                               return ListTile(
                                 contentPadding: EdgeInsets.zero,
                                 title: Text(DateFormatter.formatMonthYear(date)),
-                                subtitle: Text('+${entry.value} Bonus book(s)'),
+                                subtitle: Text('+${entry.value} Bonus ${terms.cadenceUnit}'),
                                 trailing: IconButton(
                                   icon: const Icon(Icons.delete_outline, color: AppColors.statusDanger, size: 18),
                                   onPressed: () async {
@@ -778,7 +810,7 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
                                 children: [
                                   Row(
                                     children: [
-                                      Text('No-Book Months (Paused)', style: theme.textTheme.titleMedium),
+                                      Text('${terms.noPurchaseMonthSingleTitle}s (Paused)', style: theme.textTheme.titleMedium),
                                       const SizedBox(width: 8),
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -798,14 +830,14 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
                                       ),
                                     ],
                                   ),
-                                  Text('Months with 0 regular book target', style: theme.textTheme.bodySmall),
+                                  Text('Months with 0 regular ${terms.cadenceUnit} target', style: theme.textTheme.bodySmall),
                                 ],
                               ),
                             ),
                             IconButton(
                               icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.caramelizedAmber),
                               onPressed: () => _showAddNoBookMonthDialog(context, currentMonthKey),
-                              tooltip: 'Add No-Book Month',
+                              tooltip: 'Add ${terms.noPurchaseMonthSingleTitle}',
                             ),
                             Icon(
                               _isNoBookMonthsExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
@@ -821,7 +853,7 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
                         if (config.noBookMonths.isEmpty)
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Text('No paused / no-book months scheduled.', style: theme.textTheme.bodySmall),
+                            child: Text('No paused / ${terms.noPurchaseMonthSingleTitle.toLowerCase()}s scheduled.', style: theme.textTheme.bodySmall),
                           )
                         else
                           Column(
@@ -832,7 +864,7 @@ class _RuleStudioScreenState extends ConsumerState<RuleStudioScreen> with Single
                               return ListTile(
                                 contentPadding: EdgeInsets.zero,
                                 title: Text(DateFormatter.formatMonthYear(date)),
-                                subtitle: const Text('Regular Target: 0 books (Paused)'),
+                                subtitle: Text('Regular Target: 0 ${terms.cadenceUnit} (Paused)'),
                                 trailing: IconButton(
                                   icon: const Icon(Icons.delete_outline, color: AppColors.statusDanger, size: 18),
                                   onPressed: () async {

@@ -623,8 +623,8 @@ void main() {
       await tester.tap(moreVertIcons.last);
       await tester.pumpAndSettle();
 
-      // Tap Edit Volume
-      await tester.tap(find.text('Edit Volume'));
+      // Tap Edit
+      await tester.tap(find.text('Edit'));
       await tester.pumpAndSettle();
 
       // Switch Owned to true
