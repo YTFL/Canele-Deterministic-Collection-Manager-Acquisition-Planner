@@ -6,6 +6,9 @@ import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../services/universal_exporter.dart';
 import '../../services/profile_service.dart';
+import '../../models/profile.dart';
+import '../../features/games/services/game_space_exporter.dart';
+import '../../features/custom/services/custom_space_exporter.dart';
 
 enum ExportType {
   fullState,
@@ -72,7 +75,14 @@ class _ExportOptionsSheetState extends State<ExportOptionsSheet> {
       switch (_exportType) {
         case ExportType.fullState:
           final specificId = _exportAllWorkspaces ? null : activeProfile.id;
-          final jsonString = UniversalExporter.exportFullAppStateToJson(indent: true, specificProfileId: specificId);
+          String jsonString;
+          if (specificId != null && activeProfile.type == ProfileType.games) {
+            jsonString = GameSpaceExporter.exportToJson(specificId, indent: true);
+          } else if (specificId != null && activeProfile.type == ProfileType.custom) {
+            jsonString = CustomSpaceExporter.exportToJson(specificId, indent: true);
+          } else {
+            jsonString = UniversalExporter.exportFullAppStateToJson(indent: true, specificProfileId: specificId);
+          }
           final ext = _fileFormat == FileFormat.canele ? 'canele' : 'json';
           final prefix = _exportAllWorkspaces
               ? 'canele_full_backup'
@@ -91,7 +101,14 @@ class _ExportOptionsSheetState extends State<ExportOptionsSheet> {
         case ExportType.collectionSpreadsheet:
           final prefix = 'canele_${activeProfile.name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}';
           if (_fileFormat == FileFormat.csv) {
-            final csvStr = UniversalExporter.exportCollectionToCsv(profile: activeProfile);
+            String csvStr;
+            if (activeProfile.type == ProfileType.games) {
+              csvStr = GameSpaceExporter.exportToCsv(activeProfile.id);
+            } else if (activeProfile.type == ProfileType.custom) {
+              csvStr = CustomSpaceExporter.exportToCsv(activeProfile.id);
+            } else {
+              csvStr = UniversalExporter.exportCollectionToCsv(profile: activeProfile);
+            }
             final fileName = '${prefix}_$timeStamp.csv';
             final bytes = utf8.encode(csvStr);
             await UniversalExporter.shareExportedFile(
@@ -100,7 +117,14 @@ class _ExportOptionsSheetState extends State<ExportOptionsSheet> {
               subject: 'Canelé Collection Spreadsheet (${activeProfile.name} - CSV)',
             );
           } else {
-            final bytes = UniversalExporter.exportCollectionToXlsx(profile: activeProfile);
+            Uint8List bytes;
+            if (activeProfile.type == ProfileType.games) {
+              bytes = GameSpaceExporter.exportToExcel(activeProfile.id);
+            } else if (activeProfile.type == ProfileType.custom) {
+              bytes = CustomSpaceExporter.exportToExcel(activeProfile.id);
+            } else {
+              bytes = UniversalExporter.exportCollectionToXlsx(profile: activeProfile);
+            }
             final fileName = '${prefix}_$timeStamp.xlsx';
             await UniversalExporter.shareExportedFile(
               bytes: bytes,

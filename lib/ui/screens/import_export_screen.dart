@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
@@ -15,6 +16,7 @@ import '../widgets/backup_folder_card.dart';
 import '../widgets/canele_card.dart';
 import '../widgets/export_options_sheet.dart';
 import '../widgets/import_preview_modal.dart';
+import '../widgets/multi_space_restore_dialog.dart';
 
 class ImportExportScreen extends ConsumerStatefulWidget {
   const ImportExportScreen({super.key});
@@ -64,6 +66,63 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
       ),
       builder: (_) => ExportOptionsSheet(initialType: type),
     );
+  }
+
+  Future<void> _pickAndRestoreBackupFolder() async {
+    try {
+      final selectedPath = await FilePicker.platform.getDirectoryPath(
+        dialogTitle: 'Select Backup Directory to Restore',
+      );
+      if (selectedPath == null || selectedPath.isEmpty) return;
+
+      final dir = Directory(selectedPath);
+      if (!await dir.exists()) return;
+
+      final spaces = await MultiSpaceRestoreDialog.discoverSpaces(dir);
+      if (spaces.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
+              const SnackBar(
+                content: Text('No valid Canelé space backups found in selected folder.'),
+                backgroundColor: AppColors.statusDanger,
+              ),
+            );
+        }
+        return;
+      }
+
+      if (mounted) {
+        final restored = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => MultiSpaceRestoreDialog(
+            backupDirectory: dir,
+            discoveredSpaces: spaces,
+          ),
+        );
+
+        if (restored == true) {
+          ref.read(profileNotifierProvider.notifier).reloadAll();
+          ref.read(seriesNotifierProvider.notifier).load();
+          ref.read(volumesNotifierProvider.notifier).load();
+          ref.read(transactionsNotifierProvider.notifier).load();
+          ref.read(ruleConfigNotifierProvider.notifier).load();
+          ref.read(rulesNotifierProvider.notifier).load();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text('Failed reading backup folder: $e'),
+              backgroundColor: AppColors.statusDanger,
+            ),
+          );
+      }
+    }
   }
 
   Future<void> _pickAndImportFile() async {
@@ -541,6 +600,15 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
               padding: const EdgeInsets.all(14),
               child: Column(
                 children: [
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.folder_open_rounded, color: AppColors.caramelizedAmber),
+                    title: const Text('Restore from Backup Folder', style: TextStyle(fontWeight: FontWeight.w700)),
+                    subtitle: const Text('Select a backup folder containing space subfolders'),
+                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                    onTap: _isImporting ? null : _pickAndRestoreBackupFolder,
+                  ),
+                  const Divider(height: 12),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.file_open_rounded, color: AppColors.caramelizedAmber),

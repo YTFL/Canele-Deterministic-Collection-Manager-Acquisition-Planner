@@ -14,6 +14,8 @@ import '../core/utils/currency_helper.dart';
 import 'backup_service.dart';
 import 'profile_service.dart';
 import '../models/profile.dart';
+import '../features/games/services/game_space_importer.dart';
+import '../features/custom/services/custom_space_importer.dart';
 
 enum RestoreMode {
   replaceAll,
@@ -135,7 +137,42 @@ class UniversalImporter {
         }
       }
 
-      // Single workspace or legacy v1 backup
+      // Check if domain-specific backup (Games or Custom)
+      final spaceType = data['spaceType']?.toString() ??
+          (data['profile'] is Map ? (data['profile'] as Map)['type']?.toString() : null);
+      final activeProfileId = ProfileService.instance.activeProfileId;
+
+      if (spaceType == 'games') {
+        final gRes = await GameSpaceImporter.restoreFromJson(
+          profileId: activeProfileId,
+          data: data,
+          mode: mode,
+        );
+        return RestoreResult(
+          success: gRes.success,
+          seriesCount: gRes.franchisesCount,
+          volumesCount: gRes.gamesCount,
+          transactionsCount: gRes.transactionsCount,
+          rulesCount: gRes.rulesCount,
+          errorMessage: gRes.errorMessage,
+        );
+      } else if (spaceType == 'custom') {
+        final cRes = await CustomSpaceImporter.restoreFromJson(
+          profileId: activeProfileId,
+          data: data,
+          mode: mode,
+        );
+        return RestoreResult(
+          success: cRes.success,
+          seriesCount: cRes.itemsCount,
+          volumesCount: 0,
+          transactionsCount: cRes.transactionsCount,
+          rulesCount: 0,
+          errorMessage: cRes.errorMessage,
+        );
+      }
+
+      // Single workspace or legacy v1 backup (Pure Books)
       if (mode == RestoreMode.replaceAll) {
         return await _restoreReplaceAll(data);
       } else {
@@ -180,7 +217,32 @@ class UniversalImporter {
     for (final entry in workspacesMap.entries) {
       if (entry.value is! Map) continue;
       final profileId = entry.key.toString();
-      final wsData = entry.value as Map;
+      final wsData = Map<String, dynamic>.from(entry.value as Map);
+
+      final wsProfile = wsData['profile'] as Map?;
+      final typeStr = wsProfile?['type']?.toString();
+
+      if (typeStr == 'games') {
+        final gRes = await GameSpaceImporter.restoreFromJson(
+          profileId: profileId,
+          data: wsData,
+          mode: RestoreMode.replaceAll,
+        );
+        totalSeries += gRes.franchisesCount;
+        totalVolumes += gRes.gamesCount;
+        totalTx += gRes.transactionsCount;
+        totalRules += gRes.rulesCount;
+        continue;
+      } else if (typeStr == 'custom') {
+        final cRes = await CustomSpaceImporter.restoreFromJson(
+          profileId: profileId,
+          data: wsData,
+          mode: RestoreMode.replaceAll,
+        );
+        totalSeries += cRes.itemsCount;
+        totalTx += cRes.transactionsCount;
+        continue;
+      }
 
       await HiveBoxes.preOpenBoxesForProfile(profileId);
       final sBox = HiveBoxes.getSeriesBox(profileId);
@@ -839,5 +901,96 @@ class UniversalImporter {
       }
     }
     return -1;
+  }
+
+  /// Restores a single Books workspace from data map
+  static Future<RestoreResult> restoreSingleWorkspace({
+    required String profileId,
+    required Map<String, dynamic> data,
+    required RestoreMode mode,
+  }) async {
+    await HiveBoxes.preOpenBoxesForProfile(profileId);
+    final sBox = HiveBoxes.getSeriesBox(profileId);
+    final vBox = HiveBoxes.getVolumesBox(profileId);
+    final tBox = HiveBoxes.getTransactionsBox(profileId);
+    final cBox = HiveBoxes.getRuleConfigBox(profileId);
+    final rBox = HiveBoxes.getRulesBox(profileId);
+
+    if (mode == RestoreMode.replaceAll) {
+      await sBox.clear();
+      await vBox.clear();
+      await tBox.clear();
+      await cBox.clear();
+      await rBox.clear();
+    }
+
+    int seriesCount = 0;
+    int volumesCount = 0;
+    int txCount = 0;
+    int rulesCount = 0;
+
+    if (data.containsKey('series') && data['series'] is List) {
+      for (final item in data['series'] as List) {
+        if (item is Map) {
+          final s = Series.fromMap(item);
+          if (mode == RestoreMode.replaceAll || !sBox.containsKey(s.id)) {
+            await sBox.put(s.id, s.toMap());
+            seriesCount++;
+          }
+        }
+      }
+    }
+
+    if (data.containsKey('volumes') && data['volumes'] is List) {
+      for (final item in data['volumes'] as List) {
+        if (item is Map) {
+          final v = Volume.fromMap(item);
+          if (mode == RestoreMode.replaceAll || !vBox.containsKey(v.id)) {
+            await vBox.put(v.id, v.toMap());
+            volumesCount++;
+          }
+        }
+      }
+    }
+
+    if (data.containsKey('transactions') && data['transactions'] is List) {
+      for (final item in data['transactions'] as List) {
+        if (item is Map) {
+          final t = PurchaseTransaction.fromMap(item);
+          if (mode == RestoreMode.replaceAll || !tBox.containsKey(t.id)) {
+            await tBox.put(t.id, t.toMap());
+            txCount++;
+          }
+        }
+      }
+    }
+
+    if (data.containsKey('ruleConfig') && data['ruleConfig'] is Map) {
+      final r = RuleConfig.fromMap(data['ruleConfig'] as Map);
+      await cBox.put(r.id, r.toMap());
+    }
+
+    final rulesList = (data['rules'] is List)
+        ? (data['rules'] as List)
+        : (data['passes'] is List ? data['passes'] as List : null);
+    if (rulesList != null) {
+      for (final item in rulesList) {
+        if (item is Map) {
+          final r = RuleModel.fromMap(item);
+          if (mode == RestoreMode.replaceAll || !rBox.containsKey(r.id)) {
+            await rBox.put(r.id, r.toMap());
+            rulesCount++;
+          }
+        }
+      }
+    }
+
+    return RestoreResult(
+      success: true,
+      seriesCount: seriesCount,
+      volumesCount: volumesCount,
+      transactionsCount: txCount,
+      rulesCount: rulesCount,
+    );
   }
 }

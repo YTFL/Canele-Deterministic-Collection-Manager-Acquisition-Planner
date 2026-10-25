@@ -6,7 +6,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../core/database/hive_boxes.dart';
+import '../models/backup_manifest.dart';
 import '../models/backup_metadata.dart';
+import '../models/profile.dart';
+import '../features/games/services/game_space_exporter.dart';
+import '../features/custom/services/custom_space_exporter.dart';
 import 'universal_exporter.dart';
 import 'profile_service.dart';
 
@@ -252,7 +256,25 @@ class BackupService {
     return finalFile;
   }
 
-  /// Creates atomic snapshot with rolling secondary backup strictly in the selected target directory
+  /// Sanitizes string for safe filesystem folder naming
+  static String sanitizeFolderName(String name) {
+    var clean = name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim();
+    if (clean.isEmpty) clean = 'Space';
+    return clean;
+  }
+
+  /// Resolves a collision-safe, human-readable directory name for a workspace profile
+  static String resolveSpaceFolderName(Profile profile, List<Profile> allProfiles) {
+    final sanitized = sanitizeFolderName(profile.name);
+    final duplicates = allProfiles.where((p) => sanitizeFolderName(p.name) == sanitized).toList();
+    if (duplicates.length > 1) {
+      final shortId = profile.id.length > 6 ? profile.id.substring(profile.id.length - 6) : profile.id;
+      return '${sanitized}_$shortId';
+    }
+    return sanitized;
+  }
+
+  /// Creates atomic snapshots organized into per-space subfolders in the target directory
   Future<File?> createBackupSnapshot({
     String? targetDirectory,
     String baseFileName = 'canele_autobackup',
@@ -264,20 +286,18 @@ class BackupService {
     _onMetadataChanged?.call(_currentMetadata);
 
     try {
-      final jsonContent = UniversalExporter.exportFullAppStateToJson(indent: true);
       final customPath = targetDirectory ?? _targetDirectoryPath;
-
-      File? writtenFile;
+      Directory? targetDir;
       String? errorMsg;
 
-      // 1. Try writing to custom directory if configured
+      // 1. Try targeting custom directory if configured
       if (customPath != null && customPath.trim().isNotEmpty) {
         try {
           final customDir = Directory(customPath);
           if (!await customDir.exists()) {
             await customDir.create(recursive: true);
           }
-          writtenFile = await _writeAtomicSnapshot(customDir, baseFileName, jsonContent);
+          targetDir = customDir;
         } catch (e) {
           debugPrint('[BackupService] Custom folder write failed: $e');
           errorMsg = e.toString();
@@ -288,29 +308,90 @@ class BackupService {
       }
 
       // 2. If no custom directory OR custom directory failed, write to guaranteed app docs directory
-      if (writtenFile == null) {
+      if (targetDir == null) {
         final appDocDir = await getApplicationDocumentsDirectory();
         final backupDir = Directory('${appDocDir.path}/canele_backups');
         if (!await backupDir.exists()) {
           await backupDir.create(recursive: true);
         }
-        writtenFile = await _writeAtomicSnapshot(backupDir, baseFileName, jsonContent);
+        targetDir = backupDir;
       }
 
-      final fileSize = await writtenFile.length();
+      final allProfiles = ProfileService.instance.getAllProfiles();
+      final manifestEntries = <SpaceBackupEntry>[];
+      int totalAggregatedSize = 0;
+
+      // 3. For each space profile, create dedicated subfolder and write space-specific backup
+      for (final profile in allProfiles) {
+        final folderName = resolveSpaceFolderName(profile, allProfiles);
+        final spaceDir = Directory('${targetDir.path}/$folderName');
+        if (!await spaceDir.exists()) {
+          await spaceDir.create(recursive: true);
+        }
+
+        String spaceJsonContent;
+        int itemCount = 0;
+        int txCount = 0;
+
+        if (profile.type == ProfileType.books) {
+          spaceJsonContent = UniversalExporter.exportFullAppStateToJson(
+            indent: true,
+            specificProfileId: profile.id,
+          );
+          itemCount = HiveBoxes.getSeriesBox(profile.id).length;
+          txCount = HiveBoxes.getTransactionsBox(profile.id).length;
+        } else if (profile.type == ProfileType.games) {
+          spaceJsonContent = GameSpaceExporter.exportToJson(profile.id, indent: true);
+          itemCount = HiveBoxes.getVolumesBox(profile.id).length;
+          txCount = HiveBoxes.getTransactionsBox(profile.id).length;
+        } else {
+          spaceJsonContent = CustomSpaceExporter.exportToJson(profile.id, indent: true);
+          itemCount = HiveBoxes.getSeriesBox(profile.id).length;
+          txCount = HiveBoxes.getTransactionsBox(profile.id).length;
+        }
+
+        final spaceFile = await _writeAtomicSnapshot(spaceDir, 'canele_backup', spaceJsonContent);
+        totalAggregatedSize += await spaceFile.length();
+
+        manifestEntries.add(SpaceBackupEntry(
+          profileId: profile.id,
+          name: profile.name,
+          type: profile.type,
+          folderName: folderName,
+          backupFileName: 'canele_backup.json',
+          itemCount: itemCount,
+          transactionCount: txCount,
+          lastBackupTime: DateTime.now(),
+        ));
+      }
+
+      // 4. Write canele_manifest.json at the root of targetDir
+      final manifest = BackupManifest(
+        exportedAt: DateTime.now(),
+        spaces: manifestEntries,
+      );
+      final manifestFile = File('${targetDir.path}/canele_manifest.json');
+      await manifestFile.writeAsString(manifest.toJson(indent: true), flush: true);
+      totalAggregatedSize += await manifestFile.length();
+
+      // 5. Also write root multi-workspace bundle for single-file exports / legacy compatibility
+      final fullAppStateJson = UniversalExporter.exportFullAppStateToJson(indent: true);
+      final rootBundleFile = await _writeAtomicSnapshot(targetDir, baseFileName, fullAppStateJson);
+      totalAggregatedSize += await rootBundleFile.length();
+
       final now = DateTime.now();
 
       _currentMetadata = _currentMetadata.copyWith(
-        targetDirectoryPath: _targetDirectoryPath ?? writtenFile.parent.path,
+        targetDirectoryPath: _targetDirectoryPath ?? targetDir.path,
         lastBackupTime: now,
-        lastBackupSizeBytes: fileSize,
+        lastBackupSizeBytes: totalAggregatedSize,
         lastBackupStatus: errorMsg != null ? 'error' : 'success',
         lastErrorMessage: errorMsg,
       );
       _onMetadataChanged?.call(_currentMetadata);
 
-      debugPrint('[BackupService] Auto-backup successfully written: ${writtenFile.path} ($fileSize bytes)');
-      return writtenFile;
+      debugPrint('[BackupService] Multi-space backup successfully created at ${targetDir.path} with ${manifestEntries.length} spaces ($totalAggregatedSize bytes)');
+      return rootBundleFile;
     } catch (e) {
       debugPrint('[BackupService] Backup creation failed: $e');
       _currentMetadata = _currentMetadata.copyWith(
