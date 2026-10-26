@@ -1083,22 +1083,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       size: 26,
                     ),
                     title: const Text('Report a Bug', style: TextStyle(fontWeight: FontWeight.w700)),
-                    subtitle: const Text('File an issue via the GitHub bug report template'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.copy_rounded, size: 18),
-                          tooltip: 'Copy template link',
-                          onPressed: () => ExternalLinkHelper.copyUrl(
-                            context,
-                            ExternalLinkHelper.bugReportUrl,
-                            label: 'Bug Report',
-                          ),
-                        ),
-                        const Icon(Icons.open_in_new_rounded, size: 16, color: AppColors.caramelizedAmber),
-                      ],
+                    subtitle: const Text(
+                      'Report unexpected crashes, errors, or glitches.\nDirect link to GitHub bug report template.',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
                     onTap: () => ExternalLinkHelper.openUrl(context, ExternalLinkHelper.bugReportUrl),
                   ),
                   const Divider(height: 12),
@@ -1112,22 +1102,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       size: 26,
                     ),
                     title: const Text('Request a Feature', style: TextStyle(fontWeight: FontWeight.w700)),
-                    subtitle: const Text('Propose improvements via the GitHub feature request template'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.copy_rounded, size: 18),
-                          tooltip: 'Copy template link',
-                          onPressed: () => ExternalLinkHelper.copyUrl(
-                            context,
-                            ExternalLinkHelper.featureRequestUrl,
-                            label: 'Feature Request',
-                          ),
-                        ),
-                        const Icon(Icons.open_in_new_rounded, size: 16, color: AppColors.caramelizedAmber),
-                      ],
+                    subtitle: const Text(
+                      'Suggest new features, rules, or workflows.\nDirect link to GitHub feature request template.',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
                     onTap: () => ExternalLinkHelper.openUrl(context, ExternalLinkHelper.featureRequestUrl),
                   ),
                   const Divider(height: 12),
@@ -1141,7 +1121,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       size: 26,
                     ),
                     title: const Text('All Issue Templates & Links', style: TextStyle(fontWeight: FontWeight.w700)),
-                    subtitle: const Text('View and copy direct URLs for bugs, features, and documentation'),
+                    subtitle: const Text(
+                      'Browse all open tickets, guides, and issues.\nDirect link to Canelé repository issues board.',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
                     onTap: () => ExternalLinkHelper.showFeedbackOptionsSheet(context),
                   ),
@@ -1169,7 +1153,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.sync_lock_rounded, color: AppColors.caramelizedAmber, size: 28),
                         title: const Text('File Hub & Auto-Backup', style: TextStyle(fontWeight: FontWeight.w700)),
-                        subtitle: const Text('Backups, spreadsheet exports, and restoration'),
+                        subtitle: const Text(
+                          'Backups, spreadsheet exports, and restoration',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
                         onTap: () {
                           Navigator.of(context).push(
@@ -1185,7 +1173,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           'Clear Active Workspace Items',
                           style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
-                        subtitle: Text('Erase all ${terminology.itemsLabel.toLowerCase()} and history in "${activeProfile.name}" while keeping rules'),
+                        subtitle: Text(
+                          'Erase all ${terminology.itemsLabel.toLowerCase()} and history in "${activeProfile.name}" while keeping rules',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
                         onTap: () => _showClearWorkspaceDialog(context, activeProfile),
                       ),
@@ -1194,7 +1186,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.delete_forever_rounded, color: AppColors.statusDanger, size: 26),
                         title: const Text('Wipe Complete App Database', style: TextStyle(color: AppColors.statusDanger, fontWeight: FontWeight.w700)),
-                        subtitle: const Text('Permanently erase all workspaces, items, rules, and reset to fresh default'),
+                        subtitle: const Text(
+                          'Permanently erase all workspaces, items, rules, and reset to fresh default',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
                         onTap: () async {
                           final confirm = await showDialog<bool>(
@@ -1249,7 +1245,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.auto_awesome_rounded, color: AppColors.caramelizedAmber),
                 title: const Text('Re-run Setup Wizard'),
-                subtitle: const Text('Reconfigure timeline start, cadence, and recurring bonuses'),
+                subtitle: const Text(
+                  'Reconfigure timeline start, cadence, and recurring bonuses',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
                 onTap: () {
                   Navigator.of(context).push(

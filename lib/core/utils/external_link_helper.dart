@@ -257,6 +257,8 @@ class ExternalLinkHelper {
           Text(
             description,
             style: theme.textTheme.bodySmall?.copyWith(fontSize: 12),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 10),
           // Direct Link display box
@@ -281,21 +283,10 @@ class ExternalLinkHelper {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              OutlinedButton.icon(
-                onPressed: () => copyUrl(context, url, label: title),
-                icon: const Icon(Icons.copy_rounded, size: 15),
-                label: const Text('Copy Link'),
-                style: OutlinedButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
-              const SizedBox(width: 8),
               FilledButton.icon(
                 onPressed: () => openUrl(context, url),
                 icon: const Icon(Icons.open_in_new_rounded, size: 15),
-                label: const Text('Open'),
+                label: const Text('Open in Browser'),
                 style: FilledButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
