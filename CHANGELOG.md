@@ -7,6 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.0] - 2026-10-26
+
+### Added
+
+#### 🏢 Multi-Profile Workspaces & Seamless Switching
+- **Isolated Scoped Workspaces**: Full support for creating, customizing, and managing multiple independent collections. Each workspace maintains its own items, transactions, quotas, recommendation rules, cadence settings, and timeline configurations.
+- **Top App Bar Workspace Switcher**: Quick workspace selector seamlessly integrated into the navigation title bar (`WorkspaceSwitcherAppBarTitle`). Tap to toggle between collections or launch the switcher modal.
+- **Quick Switcher Modal**: Bottom sheet displaying active profiles with icons, entity counts, active workspace badge, and fast creation shortcuts.
+- **Dedicated 3-Step Workspace Creator**: Create new spaces with customized names, domain presets (Books & Manga, Video Games, or Custom), and initial cadence configurations.
+- **Zero-Downtime Database Migration**: Automatically migrates v1.x flat databases to v2.0 scoped profile boxes without data loss. Legacy collections are safely upgraded into the default Books & Manga workspace.
+
+#### 🎮 Dedicated Video Games Domain & Engine
+- **First-Class Games Architecture**: Complete separation into a specialized game domain featuring `GameItem`, `GameSeries` (Franchises), and `GameRule`.
+- **Zero-Rules & Game Cadence Enforcement**: Tailored acquisition rules and quota cadence designed specifically for video games—no items recommended if no recommendation rules are active.
+- **Games Dashboard & Backlog Management**:
+  - Live status tracking across Backlog, Playing, and Completed states.
+  - Interactive Priority Targets and Watchlist.
+  - Dedicated Games acquisition logger supporting physical, digital, standard, and DLC entries.
+- **Immersive Cover Grid & Game Detail View**:
+  - High-density poster cover grid and banner presentation.
+  - Franchise and standalone title categorization.
+  - DLC tracking linked chronologically to base game installations.
+  - Custom game attributes including platforms, editions, user ratings, and release status.
+
+#### 🛠️ Dynamic Custom Workspaces & Flexible Schemas
+- **Tailor Canelé to Any Hobby**: Track vinyl records, board games, figures, scale models, films, audio gear, or bespoke physical collectibles.
+- **Dynamic Field Schema Designer**:
+  - Enable or disable fields on the fly: Cover Art, Platform / Format, Edition / Pressing, Rating, Price, Release Date, and Custom Attributes.
+  - Custom statuses lifecycle (e.g. `Wishlist`, `Backlog`, `In Progress`, `Completed`, `Pre-ordered`).
+- **Contextual Workspace Terminology**: Dynamic UI labels that automatically adjust across every screen (e.g., "Add Vinyl", "Artist", "Pressing", "Add Figure", "Manufacturer").
+- **Adaptive Collection & Dashboard Views**: Dynamically alters table/grid presentation, checklist badges, and detail sheets according to your active schema.
+
+#### 📦 Multi-Space Subfolder Backup & Universal Data Portability
+- **Subfolder-Structured Backup Format**: Multi-space backups now organize neatly into individual profile folders (`<selected_dir>/<space_folder>/canele_backup.json`) alongside a root `canele_manifest.json`.
+- **Selective Multi-Space Restore**: Pick and choose exactly which spaces to restore from a backup directory archive without overwriting unselected workspaces.
+- **Domain-Specific Backup Models**: Strongly typed backup bundles for Books, Games (`GameSpaceBackup`), and Custom workspaces (`CustomSpaceBackup`).
+- **Universal Import & Export Engine**:
+  - Seamlessly export individual spaces or entire multi-profile libraries to JSON, CSV, or Excel (.xlsx).
+  - Full backward compatibility for importing legacy v1.x single-workspace backup files.
+  - Type-safe exporters and importers with dedicated engines for Books, Games, and Custom spaces.
+
+#### 🎨 Modern Adaptive Android Icons & Monochrome Theming
+- **Android 13+ Themed / Monochrome Icons**: Native support for Android dynamic colors and Monet monochrome launcher icons (`ic_launcher_monochrome.png`).
+- **Precision Adaptive Icon Safe Zones**: Re-engineered 108dp canvas with 66dp safe-zone adherence across all densities (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`).
+- **Pre-Cropped Circular Legacy Icons**: Dedicated round mipmap assets for legacy launchers.
+- **Canelé Caramelized Amber Splash Screen**: Seamless, flicker-free native splash transition styled in warm `#FCF7EC` and rich Canelé brand tones.
+
+#### 💬 In-App Help & Feedback Hub
+- **GitHub Issue Templates Integration**:
+  - Direct 1-tap links in Settings to the official GitHub Bug Report template (`bug_report.yml`) and Feature Request template (`feature_request.yml`).
+  - Community link to the Canelé issues and discussions board.
+  - Native Android `Intent.ACTION_VIEW` URL launcher with zero extra dependencies and automatic graceful clipboard fallback.
+
+### Changed
+- **Strict 2-Line Settings Descriptions**:
+  - Formatted and capped all subtitles in the Settings tab to strict, glanceable 2-line descriptions with ellipsis overflow.
+  - Removed cluttering copy buttons from Settings tiles in favor of clean navigation arrows.
+- **Streamlined Acquisition Logging**:
+  - Removed optional purchase notes input from both Books and Games acquisition sheets for a cleaner, faster logging experience.
+  - Removed game tags chips and custom tag entry from the Add Game sheet and collection views.
+- **Framework Modernization**:
+  - Migrated `ReorderableListView.builder` from deprecated `onReorder` callback to `onReorderItem`.
+  - Resolved all analyzer warnings, unreferenced methods, and unused imports across the codebase.
+
+### Fixed
+- **Android APK Build & Gradle Modernization**:
+  - Resolved NDK `abiFilters` conflict in Gradle configuration preventing assembleRelease builds.
+  - Tuned Gradle JVM daemon memory allocation for reliable builds.
+- **Custom Space Exporter Type Safety**:
+  - Fixed getter compilation error in Custom Space Exporter by dynamically extracting attribute keys directly from item data.
+
+---
+
 ## [1.1.1] - 2026-09-03
 
 ### Added

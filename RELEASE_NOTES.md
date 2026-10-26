@@ -73,11 +73,27 @@
 - **Gradle & NDK Modernization**: Fixed APK build failures related to NDK `abiFilters` conflict, tuned Gradle JVM daemon memory allocation, and streamlined build scripts.
 - **Type-Safe Domain Exporters**: Resolved compilation issues and hardened custom metadata attributes across all export/import and test suites.
 - **Comprehensive Test Coverage**: Over 110 automated tests covering workspace migrations, multi-space backups, game rule evaluators, schema customization, and UI flows.
+- **Flutter Framework Modernization**: Cleaned all unused imports, removed unreferenced methods, and migrated `ReorderableListView` from deprecated `onReorder` to `onReorderItem`.
+
+---
+
+### 💬 8. In-App Help, Feedback Hub & UI Streamlining
+- **GitHub Issue Templates Integration**:
+  - Direct 1-tap links in Settings to the official GitHub Bug Report template (`bug_report.yml`) and Feature Request template (`feature_request.yml`).
+  - Native Android `Intent.ACTION_VIEW` URL launcher with zero extra dependencies and automatic graceful clipboard fallback.
+- **Strict 2-Line Glanceable Descriptions**: Clean, distraction-free subtitles strictly formatted to 2 lines with ellipsis overflow across all Settings tiles.
+- **Streamlined Acquisition Logging**: Removed optional purchase notes input from both Books and Games acquisition sheets for a cleaner, faster logging flow.
+- **Distraction-Free Game Management**: Removed game tags from game addition and collection views.
 
 ---
 
 ## 📋 Full Changelog Since v1.1.1
 
+- `eb7cdde` **style(settings):** enforce strict 2-line descriptions and remove copy button
+- `5a76561` **refactor:** remove purchase notes input and game tags from creation and acquisition sheets
+- `d7a45fd` **fix(utils):** guard context with mounted check after await in external link helper
+- `13a6573` **feat(settings):** add Help & Feedback section with direct GitHub issue template links
+- `7b1efe4` **chore:** clean up unused imports, remove unreferenced element, and migrate onReorder to onReorderItem
 - `4672cbf` **fix(custom):** resolve customAttributes compilation error in custom space exporter and tests
 - `ee3a892` **feat(backup):** Multi-space subfolder backup architecture with dedicated Game and Custom domain models
 - `a67b9e2` **feat(games):** Redesign Games domain with dedicated architecture, rules, UI parity, and zero-rules enforcement
