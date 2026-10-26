@@ -1,0 +1,43 @@
+name: "📖 Documentation & Guides"
+description: "Suggest improvements, corrections, or additions to Canelé's documentation"
+title: "[Docs]: "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Accurate, comprehensive documentation helps contributors, developers, and users understand Canelé's deterministic mechanics.
+        Thank you for helping us keep our docs polished!
+
+  - type: dropdown
+    id: doc_target
+    attributes:
+      label: Documentation Area
+      description: Which documentation file or section needs improvement?
+      options:
+        - "README.md (Feature overview, quick start, screenshots)"
+        - "TECHNICAL.md (Architecture, Riverpod state, Hive persistence, algorithms)"
+        - "CONTRIBUTING.md (Setup instructions, commit rules, PR guidelines)"
+        - "In-App Setup Wizard & Educational Tooltips"
+        - "Codebase Docstrings & Inline Architecture Comments"
+        - "Other"
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue_summary
+    attributes:
+      label: Description of the Issue
+      description: What is inaccurate, missing, confusing, or outdated in the current documentation?
+      placeholder: "e.g., The Hive schema migration section in TECHNICAL.md does not describe how the Games domain subfolder layout works..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested_changes
+    attributes:
+      label: Suggested Content or Corrections
+      description: Provide the specific text, diff, or explanation you would like added or updated.
+      placeholder: "Provide proposed wording or markdown diff here..."
+    validations:
+      required: true

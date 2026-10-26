@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:canele/models/profile.dart';
 import 'package:canele/models/purchase_transaction.dart';

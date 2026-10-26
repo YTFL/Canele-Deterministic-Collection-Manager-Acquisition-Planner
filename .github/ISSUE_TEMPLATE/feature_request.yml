@@ -1,0 +1,81 @@
+name: "💡 Feature Request / Rule Proposal"
+description: "Propose a new feature, rule studio pass, or enhancement for Canelé"
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for proposing an enhancement for Canelé!
+        Canelé is committed to **100% deterministic mathematics** (zero opaque AI/ML) and **100% local-first offline privacy**.
+        Please review how your proposal fits within these core invariants.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What limitation or workflow gap are you experiencing?
+      placeholder: "e.g., I find it difficult to track omnibuses or box sets that bundle multiple volumes into one entry..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: Proposed Solution / User Experience
+      description: Describe your proposed solution and how the user would interact with it.
+      placeholder: "e.g., Add a toggle in Series Detail to define an omnibus mapping (e.g. Omnibus 1 = Vols 1-3)..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: target_subsystem
+    attributes:
+      label: Target Feature Domain
+      description: Which part of Canelé will this enhancement primarily touch?
+      options:
+        - "Deterministic Quota Engine & Mathematical Models"
+        - "Rule Studio (New Strategy Pass, Sorter, or Filter)"
+        - "Books & Manga Domain"
+        - "Games Domain / Backlog Tracking"
+        - "Custom Spaces Preset & Dynamic Schemas"
+        - "Universal Importer / Exporter (Spreadsheets & Parsers)"
+        - "Analytics, Spend Breakdown & Pricing Engine"
+        - "UI / UX / Pastry Design System"
+        - "Backup Engine & Data Portability"
+    validations:
+      required: true
+
+  - type: textarea
+    id: core_invariants_alignment
+    attributes:
+      label: Architectural & Core Invariants Alignment
+      description: |
+        Explain how this proposal respects Canelé's core principles:
+        1. **100% Deterministic Arithmetic**: How are recommendations or numbers calculated without stochastic/AI black-box models?
+        2. **Local-First & Offline Privacy**: Does this function completely offline without mandatory cloud infrastructure?
+      placeholder: "e.g. This pass sorts candidates by pure math (release date proximity) and runs completely locally using Hive."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives_considered
+    attributes:
+      label: Alternatives Considered
+      description: Describe any alternative solutions, workaround workflows, or features you've considered.
+
+  - type: textarea
+    id: mockups
+    attributes:
+      label: Mockups or Visual References
+      description: Attach UI sketches, diagrams, or screenshots from other tools to help illustrate your idea.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Proposal Checklist
+      options:
+        - label: "I have searched existing [issues](https://github.com/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner/issues) and confirmed this proposal is not already open."
+          required: true
+        - label: "I have reviewed [TECHNICAL.md](https://github.com/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner/blob/main/TECHNICAL.md) to understand Canelé's architecture."
+          required: false

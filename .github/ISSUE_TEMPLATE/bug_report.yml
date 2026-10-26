@@ -1,0 +1,130 @@
+name: "🐛 Bug Report"
+description: "Report a reproducible defect or unexpected behavior in Canelé"
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue with Canelé!
+        Please fill out as much relevant information as possible to help us diagnose and resolve the problem quickly.
+        *Note: Do NOT include sensitive personal data, actual passwords, or un-sanitized private collection backups.*
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: "e.g., When calculating forward auto-skip quota in Rule Studio with bonus months enabled, the target month displays NaN..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: domain
+    attributes:
+      label: Affected Domain / Feature
+      description: Select the area of the application most closely related to this issue.
+      options:
+        - "Core Collection (Series, Volumes, Custom Statuses)"
+        - "Deterministic Quota Engine & Cadence"
+        - "Rule Studio Acquisition Waterfall"
+        - "Games Domain / Backlog Engine"
+        - "Custom Spaces Preset & Schema"
+        - "Universal Importer / Exporter (CSV, XLSX, StoryGraph, Goodreads)"
+        - "Storage, Backups & Hive Persistence"
+        - "UI, Pastry Theme & Design System"
+        - "Android Platform, Storage Access Framework (SAF) & Permissions"
+        - "Other / Build & Gradle Issue"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction_steps
+    attributes:
+      label: Steps to Reproduce
+      description: Step-by-step instructions to reproduce the issue.
+      placeholder: |
+        1. Open Canelé on Android.
+        2. Navigate to 'Rule Studio' -> 'Rule Passes'.
+        3. Reorder the 'Stay Caught Up' pass to position 1.
+        4. Return to Dashboard and observe the quota card.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected Behavior
+      description: A clear description of what you expected to happen.
+      placeholder: "The recommendation slots should update to display candidate volumes sorted by closest completion."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually occurred instead.
+      placeholder: "The dashboard cards remain blank or throw an unhandled assertion error."
+    validations:
+      required: true
+
+  - type: input
+    id: app_version
+    attributes:
+      label: App Version & Build
+      description: Found in Canelé Settings -> About (e.g., v1.1.1+3).
+      placeholder: "v1.1.1+3"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: installation_source
+    attributes:
+      label: Installation Source
+      description: How did you install the app?
+      options:
+        - "Pre-built APK from GitHub Releases"
+        - "Compiled locally from source (Debug build)"
+        - "Compiled locally from source (Release build)"
+        - "Other"
+    validations:
+      required: true
+
+  - type: input
+    id: device_info
+    attributes:
+      label: Device & Android OS Version
+      description: Device model and Android version.
+      placeholder: "e.g., Google Pixel 8 (Android 14) or Samsung Galaxy S23 (Android 13)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs or Stack Trace
+      description: Paste any Flutter/Android crash logs or terminal output if available (`flutter run` or `adb logcat`).
+      render: shell
+      placeholder: |
+        [VERBOSE-2:ui_dart_state.cc] Unhandled Exception: RangeError (index): Invalid value: Valid value range is empty: 0
+        #0      List.[] (dart:core-patch/growable_array.dart:340:36)
+        ...
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or Screen Recordings
+      description: Drag and drop screenshots or videos showing the issue (make sure no private personal data is visible).
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Contributor Checklist
+      options:
+        - label: "I have searched the existing [issues](https://github.com/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner/issues) to ensure this is not a duplicate."
+          required: true
+        - label: "I have tested or verified this against the latest release or `main` branch."
+          required: true
+        - label: "No personal credentials or sensitive collection data are included in this report."
+          required: true

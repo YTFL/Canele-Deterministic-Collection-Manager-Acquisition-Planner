@@ -8,13 +8,9 @@ import '../../features/custom/services/custom_space_importer.dart';
 import '../../features/games/services/game_space_importer.dart';
 import '../../models/backup_manifest.dart';
 import '../../models/profile.dart';
-import '../../providers/profile_provider.dart';
-import '../../providers/quota_provider.dart';
-import '../../providers/series_provider.dart';
 import '../../services/backup_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/universal_importer.dart';
-import 'canele_card.dart';
 
 class DiscoveredSpaceBackup {
   final String profileId;

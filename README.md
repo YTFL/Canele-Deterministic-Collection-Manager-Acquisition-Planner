@@ -19,6 +19,7 @@
 [How It Works](#-how-it-works) •
 [Data Portability](#-data-portability--privacy) •
 [Technical Architecture](TECHNICAL.md) •
+[Contributing](CONTRIBUTING.md) •
 [Changelog](CHANGELOG.md)
 
 </div>
@@ -161,6 +162,15 @@ For developers, contributors, and curious users interested in deep architectural
 - **[TECHNICAL.md](TECHNICAL.md)**: Deep dive into the Riverpod state architecture, Hive NoSQL persistence, deterministic mathematical formulas, universal regex tokenizers, and custom widget system.
 - **[CHANGELOG.md](CHANGELOG.md)**: Chronological version history following Semantic Versioning.
 - **[RELEASE_NOTES.md](RELEASE_NOTES.md)**: Detailed release announcement.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Whether you are reporting a bug, proposing a new Rule Studio pass, or submitting code improvements:
+- Read our **[CONTRIBUTING.md](CONTRIBUTING.md)** for architecture invariants, local setup, and PR guidelines.
+- Report defects using our structured **[Bug Report Form](https://github.com/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner/issues/new?template=bug_report.yml)**.
+- Propose enhancements with our **[Feature Request Form](https://github.com/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner/issues/new?template=feature_request.yml)**.
 
 ---
 

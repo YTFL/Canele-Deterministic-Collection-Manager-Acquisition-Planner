@@ -202,9 +202,6 @@ class GameRulesNotifier extends StateNotifier<List<GameRule>> {
   }
 
   Future<void> reorderRules(int oldIndex, int newIndex) async {
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
     final list = List<GameRule>.from(state);
     final item = list.removeAt(oldIndex);
     list.insert(newIndex, item);

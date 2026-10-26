@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Contribution Guidelines
+    url: https://github.com/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner/blob/main/CONTRIBUTING.md
+    about: Read our contributing guide for setup instructions, coding conventions, and architectural rules.
+  - name: Security Vulnerabilities
+    url: https://github.com/YTFL/Canele-Deterministic-Collection-Manager-Acquisition-Planner/security/advisories/new
+    about: Privately disclose sensitive security vulnerabilities to repository maintainers.

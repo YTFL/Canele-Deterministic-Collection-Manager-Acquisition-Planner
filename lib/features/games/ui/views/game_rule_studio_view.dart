@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/utils/date_formatter.dart';
 import '../../../../providers/quota_provider.dart';
 import '../../../../ui/widgets/canele_card.dart';
 import '../../../../ui/widgets/canele_month_year_picker.dart';
 import '../../../../ui/widgets/workspace_switcher_app_bar_title.dart';
-import '../../models/game_rule.dart';
 import '../../providers/game_providers.dart';
 import '../sheets/edit_game_rule_sheet.dart';
 import '../widgets/game_rule_card.dart';
@@ -158,7 +156,7 @@ class _GameRuleStudioViewState extends ConsumerState<GameRuleStudioView> with Si
                       Expanded(
                         child: ReorderableListView.builder(
                           itemCount: rules.length,
-                          onReorder: (oldIndex, newIndex) {
+                          onReorderItem: (oldIndex, newIndex) {
                             ref.read(gameRulesNotifierProvider.notifier).reorderRules(oldIndex, newIndex);
                           },
                           itemBuilder: (context, index) {
