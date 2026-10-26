@@ -36,19 +36,21 @@ class ExternalLinkHelper {
       debugPrint('[ExternalLinkHelper] Error opening URL: $e');
     }
 
-    if (!opened && context.mounted) {
+    if (!opened) {
       await Clipboard.setData(ClipboardData(text: url));
-      ScaffoldMessenger.of(context)
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(
-            content: Text('Could not open browser. Link copied to clipboard:\n$url'),
-            action: SnackBarAction(
-              label: 'OK',
-              onPressed: () {},
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text('Could not open browser. Link copied to clipboard:\n$url'),
+              action: SnackBarAction(
+                label: 'OK',
+                onPressed: () {},
+              ),
             ),
-          ),
-        );
+          );
+      }
     }
     return opened;
   }
