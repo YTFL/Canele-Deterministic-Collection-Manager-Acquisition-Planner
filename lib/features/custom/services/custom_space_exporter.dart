@@ -79,7 +79,12 @@ class CustomSpaceExporter {
     final itemLabel = schema?.itemLabel ?? 'Item';
     final groupLabel = schema?.groupLabel ?? 'Group';
 
-    final dynamicAttrs = schema?.customAttributes ?? [];
+    // Collect all dynamic custom field keys across items
+    final customFieldKeys = <String>{};
+    for (final item in backup.items) {
+      customFieldKeys.addAll(item.customFields.keys);
+    }
+    final sortedCustomKeys = customFieldKeys.toList()..sort();
 
     final rows = <List<dynamic>>[];
     // Header row
@@ -92,7 +97,7 @@ class CustomSpaceExporter {
       'Platform / Medium',
       'Edition',
       'Tags',
-      for (final attr in dynamicAttrs) attr.name,
+      ...sortedCustomKeys,
     ];
     rows.add(headers);
 
@@ -108,8 +113,8 @@ class CustomSpaceExporter {
         item.tags.join('; '),
       ];
 
-      for (final attr in dynamicAttrs) {
-        row.add(item.customFields[attr.id]?.toString() ?? '');
+      for (final key in sortedCustomKeys) {
+        row.add(item.customFields[key]?.toString() ?? '');
       }
 
       rows.add(row);

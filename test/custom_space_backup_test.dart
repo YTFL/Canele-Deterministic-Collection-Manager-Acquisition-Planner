@@ -8,23 +8,18 @@ import 'package:canele/features/custom/models/custom_space_backup.dart';
 void main() {
   group('CustomSpaceBackup Domain Serialization Tests', () {
     test('CustomSpaceBackup serializes and deserializes cleanly with dynamic schema', () {
-      final schema = CustomWorkspaceSchema(
+      final schema = const CustomWorkspaceSchema(
         itemLabel: 'Sneaker',
-        unitLabel: 'Pair',
         groupLabel: 'Brand',
-        customAttributes: [
-          const CustomAttributeDefinition(
-            id: 'colorway',
-            name: 'Colorway',
-            type: 'text',
-          ),
-          const CustomAttributeDefinition(
-            id: 'size',
-            name: 'US Size',
-            type: 'number',
-          ),
-        ],
-        statusOptions: ['wishlist', 'owned', 'sold'],
+        enabledFields: {
+          'coverUrl': true,
+          'platform': true,
+          'edition': true,
+          'rating': true,
+          'price': true,
+          'releaseDate': true,
+        },
+        customStatuses: ['wishlist', 'owned', 'sold'],
       );
 
       final profile = Profile(
@@ -77,7 +72,8 @@ void main() {
       expect(restored.spaceType, 'custom');
       expect(restored.profile.name, 'Sneaker Vault');
       expect(restored.profile.customSchema?.itemLabel, 'Sneaker');
-      expect(restored.profile.customSchema?.customAttributes.length, 2);
+      expect(restored.profile.customSchema?.groupLabel, 'Brand');
+      expect(restored.profile.customSchema?.customStatuses.length, 3);
 
       expect(restored.items.length, 1);
       final restoredItem = restored.items.first;
