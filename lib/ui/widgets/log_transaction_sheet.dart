@@ -65,7 +65,6 @@ class _LogTransactionSheetState extends ConsumerState<LogTransactionSheet> {
   bool _isGift = false; // Toggle between Purchased (false) and Gift (true)
   String? _selectedCurrency;
   final _priceController = TextEditingController();
-  final _notesController = TextEditingController();
 
   @override
   void initState() {
@@ -93,7 +92,6 @@ class _LogTransactionSheetState extends ConsumerState<LogTransactionSheet> {
   @override
   void dispose() {
     _priceController.dispose();
-    _notesController.dispose();
     super.dispose();
   }
 
@@ -131,7 +129,6 @@ class _LogTransactionSheetState extends ConsumerState<LogTransactionSheet> {
       quotaBucket: bucket,
       price: priceVal,
       currency: effectiveCurrency,
-      notes: _notesController.text.trim(),
     );
     await ref.read(transactionsNotifierProvider.notifier).saveTransaction(tx);
 
@@ -466,16 +463,7 @@ class _LogTransactionSheetState extends ConsumerState<LogTransactionSheet> {
               const SizedBox(height: 16),
             ],
 
-            // Notes
-            Text('Notes (Optional)', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 6),
-            TextFormField(
-              controller: _notesController,
-              decoration: const InputDecoration(
-                hintText: 'e.g. Bought during restock sale',
-              ),
-            ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
 
             // Submit Button
             SizedBox(

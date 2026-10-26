@@ -33,7 +33,6 @@ class _AddGameSheetState extends ConsumerState<AddGameSheet> {
   final _titleController = TextEditingController();
   final _totalGamesController = TextEditingController(text: '3');
   final _priceController = TextEditingController(text: '59.99');
-  final _tagController = TextEditingController();
 
   GameStructureType _structure = GameStructureType.series;
 
@@ -52,19 +51,12 @@ class _AddGameSheetState extends ConsumerState<AddGameSheet> {
   String _seriesReleaseStatus = 'ongoing'; // 'ongoing', 'completed'
 
   String? _selectedCurrency;
-  final List<String> _tags = [];
-
-  final List<String> _popularTags = const [
-    'RPG', 'Action', 'Indie', 'Strategy', 'Soulslike',
-    'Adventure', 'Shooter', 'Horror', 'Open World', 'Co-op'
-  ];
 
   @override
   void dispose() {
     _titleController.dispose();
     _totalGamesController.dispose();
     _priceController.dispose();
-    _tagController.dispose();
     super.dispose();
   }
 
@@ -98,7 +90,7 @@ class _AddGameSheetState extends ConsumerState<AddGameSheet> {
       releaseStatus: isStandalone ? 'completed' : _seriesReleaseStatus,
       defaultGamePrice: parsedPrice > 0 ? parsedPrice : null,
       defaultCurrency: currency,
-      tags: _tags,
+      tags: const [],
     );
 
     await ref.read(gameSeriesNotifierProvider.notifier).saveSeries(gameSeries);
@@ -622,34 +614,7 @@ class _AddGameSheetState extends ConsumerState<AddGameSheet> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 16),
-
-                // Tags
-                Text('Tags (Optional)', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: _popularTags.map((t) {
-                    final isSelected = _tags.contains(t);
-                    return FilterChip(
-                      label: Text(t),
-                      selected: isSelected,
-                      showCheckmark: false,
-                      selectedColor: AppColors.caramelizedAmber.withValues(alpha: 0.2),
-                      onSelected: (val) {
-                        setState(() {
-                          if (val) {
-                            _tags.add(t);
-                          } else {
-                            _tags.remove(t);
-                          }
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 8),
 
                 // Submit Button
                 SizedBox(

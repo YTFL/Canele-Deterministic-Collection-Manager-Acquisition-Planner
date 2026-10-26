@@ -44,7 +44,6 @@ class _LogGameAcquisitionSheetState extends ConsumerState<LogGameAcquisitionShee
   bool _isGift = false;
   String? _selectedCurrency;
   final _priceController = TextEditingController();
-  final _notesController = TextEditingController();
 
   @override
   void initState() {
@@ -65,7 +64,6 @@ class _LogGameAcquisitionSheetState extends ConsumerState<LogGameAcquisitionShee
   @override
   void dispose() {
     _priceController.dispose();
-    _notesController.dispose();
     super.dispose();
   }
 
@@ -94,9 +92,7 @@ class _LogGameAcquisitionSheetState extends ConsumerState<LogGameAcquisitionShee
       quotaBucket: bucket,
       price: finalPrice,
       currency: currency,
-      notes: _notesController.text.trim().isNotEmpty
-          ? _notesController.text.trim()
-          : (_isGift ? 'Gift / Free Claim' : 'Acquired game'),
+      notes: _isGift ? 'Gift / Free Claim' : '',
     );
 
     await ref.read(transactionsNotifierProvider.notifier).saveTransaction(tx);
@@ -394,16 +390,7 @@ class _LogGameAcquisitionSheetState extends ConsumerState<LogGameAcquisitionShee
                 const SizedBox(height: 16),
               ],
 
-              // Notes
-              Text('Notes (Optional)', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 6),
-              TextFormField(
-                controller: _notesController,
-                decoration: const InputDecoration(
-                  hintText: 'e.g. Steam Summer Sale, Gifted by friend',
-                ),
-              ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 8),
 
               // Submit Button
               SizedBox(

@@ -43,9 +43,7 @@ class _GameCollectionViewState extends ConsumerState<GameCollectionView> with Si
     final query = _searchController.text.trim().toLowerCase();
     var filtered = list.where((s) {
       if (query.isEmpty) return true;
-      final matchTitle = s.title.toLowerCase().contains(query);
-      final matchTags = s.tags.any((t) => t.toLowerCase().contains(query));
-      return matchTitle || matchTags;
+      return s.title.toLowerCase().contains(query);
     }).toList();
 
     filtered.sort((a, b) {
@@ -143,7 +141,7 @@ class _GameCollectionViewState extends ConsumerState<GameCollectionView> with Si
                     controller: _searchController,
                     onChanged: (_) => setState(() {}),
                     decoration: InputDecoration(
-                      hintText: 'Search game franchise, title, or tag...',
+                      hintText: 'Search games or franchises...',
                       prefixIcon: const Icon(Icons.search_rounded, size: 20),
                       suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
