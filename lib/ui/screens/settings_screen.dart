@@ -17,6 +17,7 @@ import '../../models/profile.dart';
 import '../../providers/profile_provider.dart';
 import 'package:hive/hive.dart';
 import '../../core/database/hive_boxes.dart';
+import '../../core/utils/external_link_helper.dart';
 import '../../core/utils/workspace_terminology.dart';
 import '../widgets/add_workspace_dialog.dart';
 import '../widgets/edit_custom_schema_sheet.dart';
@@ -1057,6 +1058,92 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         subtitle: Text(subtitle),
                       );
                     },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Help & Feedback Section
+            Text(
+              'Help & Feedback',
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            CaneleCard(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                children: [
+                  // Report a Bug
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(
+                      Icons.bug_report_outlined,
+                      color: AppColors.caramelizedAmber,
+                      size: 26,
+                    ),
+                    title: const Text('Report a Bug', style: TextStyle(fontWeight: FontWeight.w700)),
+                    subtitle: const Text('File an issue via the GitHub bug report template'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.copy_rounded, size: 18),
+                          tooltip: 'Copy template link',
+                          onPressed: () => ExternalLinkHelper.copyUrl(
+                            context,
+                            ExternalLinkHelper.bugReportUrl,
+                            label: 'Bug Report',
+                          ),
+                        ),
+                        const Icon(Icons.open_in_new_rounded, size: 16, color: AppColors.caramelizedAmber),
+                      ],
+                    ),
+                    onTap: () => ExternalLinkHelper.openUrl(context, ExternalLinkHelper.bugReportUrl),
+                  ),
+                  const Divider(height: 12),
+
+                  // Request a Feature
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(
+                      Icons.lightbulb_outline_rounded,
+                      color: AppColors.caramelizedAmber,
+                      size: 26,
+                    ),
+                    title: const Text('Request a Feature', style: TextStyle(fontWeight: FontWeight.w700)),
+                    subtitle: const Text('Propose improvements via the GitHub feature request template'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.copy_rounded, size: 18),
+                          tooltip: 'Copy template link',
+                          onPressed: () => ExternalLinkHelper.copyUrl(
+                            context,
+                            ExternalLinkHelper.featureRequestUrl,
+                            label: 'Feature Request',
+                          ),
+                        ),
+                        const Icon(Icons.open_in_new_rounded, size: 16, color: AppColors.caramelizedAmber),
+                      ],
+                    ),
+                    onTap: () => ExternalLinkHelper.openUrl(context, ExternalLinkHelper.featureRequestUrl),
+                  ),
+                  const Divider(height: 12),
+
+                  // All Issue Templates & Links Modal
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(
+                      Icons.assignment_outlined,
+                      color: AppColors.caramelizedAmber,
+                      size: 26,
+                    ),
+                    title: const Text('All Issue Templates & Links', style: TextStyle(fontWeight: FontWeight.w700)),
+                    subtitle: const Text('View and copy direct URLs for bugs, features, and documentation'),
+                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                    onTap: () => ExternalLinkHelper.showFeedbackOptionsSheet(context),
                   ),
                 ],
               ),
